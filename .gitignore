@@ -1,0 +1,37 @@
+# Build directories
+build/
+out/
+cmake-build-*/
+
+# Platform-specific binaries
+*.o
+*.obj
+*.exe
+*.dll
+*.so
+*.dylib
+*.a
+*.lib
+
+# IDE files
+.vscode/
+.vs/
+*.vcxproj.user
+*.sln.docstates
+
+# Temp files
+*.tmp
+*.temp
+*~
+.DS_Store
+Thumbs.db
+
+# Coverage
+coverage/
+*.gcov
+*.gcda
+*.gcno
+
+# CTest
+Testing/
+CTestTestfile.cmake

@@ -1,0 +1,10 @@
+PROJECT_NAME           = "C11 Multiplatform Template"
+OUTPUT_DIRECTORY       = ./api
+GENERATE_HTML          = YES
+GENERATE_LATEX         = NO
+EXTRACT_STATIC         = YES
+RECURSIVE              = YES
+INPUT                  = ../include ../src
+FILE_PATTERNS          = *.h *.c
+QUIET                  = YES
+GENERATE_XML           = NO

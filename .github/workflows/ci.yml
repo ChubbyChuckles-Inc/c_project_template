@@ -1,0 +1,27 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build-and-test:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        build_type: [Debug, Release]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} -DBUILD_TESTS=ON -DENABLE_COVERAGE=${{ matrix.os == 'ubuntu-latest' && matrix.build_type == 'Debug' && 'ON' || 'OFF' }}
+      - name: Build
+        run: cmake --build build --config ${{ matrix.build_type }}
+      - name: Test
+        run: ctest --test-dir build --output-on-failure
+      - name: Coverage
+        if: matrix.os == 'ubuntu-latest' && matrix.build_type == 'Debug'
+        run: |
+          gcov --version || true

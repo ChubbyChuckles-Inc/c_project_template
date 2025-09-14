@@ -1,0 +1,22 @@
+include_guard()
+
+if(MSVC)
+    # Use highest warning level; MSVC does not support /std:c11 flag
+    add_compile_options(/W4 /permissive- /D_CRT_SECURE_NO_WARNINGS)
+    add_compile_definitions(NOMINMAX WIN32_LEAN_AND_MEAN)
+else()
+    add_compile_options(-std=c11 -Wall -Wextra -Wpedantic)
+    if(CMAKE_C_COMPILER_ID MATCHES "Clang|AppleClang")
+        add_compile_options(-Wdocumentation -Wconversion -Wshadow -Wdouble-promotion)
+    elseif(CMAKE_C_COMPILER_ID STREQUAL "GNU")
+        add_compile_options(-Wformat=2 -Wstrict-aliasing -Wcast-align -Wcast-qual)
+    endif()
+endif()
+
+if(ENABLE_COVERAGE AND (CMAKE_C_COMPILER_ID MATCHES "Clang|GNU") AND (CMAKE_BUILD_TYPE STREQUAL "Debug"))
+    message(STATUS "Enabling coverage flags")
+    add_compile_options(--coverage -fprofile-arcs -ftest-coverage)
+    if(NOT MSVC)
+        link_libraries(gcov)
+    endif()
+endif()

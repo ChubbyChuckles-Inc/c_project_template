@@ -1,0 +1,22 @@
+Manual steps required to complete setup:
+
+1) Unity test framework:
+   - Replace placeholders in tests/unity/ with official files from https://github.com/ThrowTheSwitch/Unity
+     - unity.c, unity.h, unity_internals.h
+
+2) CMock (optional):
+   - If using CMock for mock generation, integrate ThrowTheSwitch/CMock and add generation scripts.
+
+3) Tools installation on developer machines:
+   - clang-format, clang-tidy, cppcheck
+   - lcov/genhtml (for coverage on Linux)
+   - pre-commit (pipx or pip) and run: pre-commit install
+   - Android NDK for Android builds; set ANDROID_NDK or ANDROID_NDK_HOME
+
+4) Doxygen:
+   - Create docs/Doxyfile and configure PROJECT_NAME, INPUT, OUTPUT_DIRECTORY
+   - Update scripts/docs/generate_api.sh to call doxygen
+
+5) Quality tools (optional):
+   - Install lizard, cloc, include-what-you-use, graphviz, jscpd or equivalents
+   - Update scripts in scripts/quality/ to call installed tools

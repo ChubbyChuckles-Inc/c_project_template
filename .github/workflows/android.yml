@@ -1,0 +1,24 @@
+name: Android
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  ndk-build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        abi: [arm64-v8a]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup NDK
+        uses: nttld/setup-ndk@v1
+        with:
+          ndk-version: r26d
+      - name: Configure
+        run: cmake -S . -B build-android --preset android-ndk-arm64 -DANDROID_NDK=$ANDROID_NDK
+      - name: Build
+        run: cmake --build build-android -j

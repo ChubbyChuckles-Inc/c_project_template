@@ -1,0 +1,15 @@
+include_guard()
+
+if(WIN32)
+    set(PLATFORM_NAME "Windows")
+elseif(APPLE)
+    set(PLATFORM_NAME "macOS")
+elseif(ANDROID)
+    set(PLATFORM_NAME "Android")
+elseif(UNIX)
+    set(PLATFORM_NAME "Linux")
+else()
+    set(PLATFORM_NAME "Unknown")
+endif()
+
+message(STATUS "Configuring for platform: ${PLATFORM_NAME}")

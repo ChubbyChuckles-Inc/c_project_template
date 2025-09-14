@@ -1,0 +1,28 @@
+name: Lint
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install tools
+        run: sudo apt-get update && sudo apt-get install -y clang-format clang-tidy cppcheck
+      - name: clang-format check
+        run: |
+          set -e
+          CHANGED=$(git ls-files "*.c" "*.h")
+          for f in $CHANGED; do
+            diff -u "$f" <(clang-format "$f") || { echo "clang-format issues in $f"; exit 1; }
+          done
+      - name: Configure
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug
+      - name: clang-tidy
+        run: |
+          clang-tidy $(git ls-files "*.c") -p build || true
+      - name: cppcheck
+        run: |
+          cppcheck --enable=all --inconclusive --error-exitcode=1 --force --inline-suppr .
