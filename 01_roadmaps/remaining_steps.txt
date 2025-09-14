@@ -12,6 +12,7 @@ Manual steps required to complete setup:
    - lcov/genhtml (for coverage on Linux)
    - pre-commit (pipx or pip) and run: pre-commit install
    - Android NDK for Android builds; set ANDROID_NDK or ANDROID_NDK_HOME
+   - On Windows, consider installing OpenCppCoverage if Windows coverage is desired
 
 4) Doxygen:
    - Create docs/Doxyfile and configure PROJECT_NAME, INPUT, OUTPUT_DIRECTORY
@@ -20,3 +21,12 @@ Manual steps required to complete setup:
 5) Quality tools (optional):
    - Install lizard, cloc, include-what-you-use, graphviz, jscpd or equivalents
    - Update scripts in scripts/quality/ to call installed tools
+
+6) Windows coverage (optional):
+   - Configure coverage tools on Windows (e.g., OpenCppCoverage) and wire into scripts/test/coverage.sh or a Windows-specific script
+   - Update CI to upload Windows coverage if configured
+
+7) Android emulator tests (optional):
+   - Add emulator setup steps in .github/workflows/android.yml
+   - Build an instrumented or host-based test runner that can run on the emulator if needed
+   - Keep tests deterministic; avoid flakiness due to emulator timing

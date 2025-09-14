@@ -1,0 +1,29 @@
+name: Coverage
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  coverage:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install coverage tools
+        run: sudo apt-get update && sudo apt-get install -y lcov
+      - name: Configure with coverage
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug -DENABLE_COVERAGE=ON
+      - name: Build
+        run: cmake --build build -j
+      - name: Test
+        run: ctest --test-dir build --output-on-failure
+      - name: Generate coverage report
+        run: |
+          mkdir -p coverage
+          lcov --capture --directory build --output-file coverage/coverage.info || true
+          genhtml coverage/coverage.info --output-directory coverage/html || true
+      - name: Upload coverage artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-html
+          path: coverage/html

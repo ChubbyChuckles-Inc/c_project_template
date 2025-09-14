@@ -41,512 +41,64 @@ This plan creates a comprehensive C11-only project template with full multi-plat
 - [x] Download Unity framework source (unity.c, unity.h, unity_internals.h)
 - [x] Place in tests/unity/ directory
 - [x] Create tests/unity/CMakeLists.txt for Unity compilation
-- [x] Configure Unity with custom assertion macros
-├── docs/                       # Documentation (GitHub Pages compatible)
-│   ├── _config.yml             # Jekyll configuration for GitHub Pages
-### [ ] 3.2 CMock Integration (Optional)
-│   ├── api/                    # API documentation (Doxygen generated)
-│   │   ├── html/               # Generated HTML docs
-### [x] 3.3 Test Structure Setup (One Test Per File)
-│   ├── guides/                 # User guides and tutorials
-│   │   ├── getting-started.md  # Quick start guide
-### [x] 3.4 Deterministic Testing Requirements
-│   │   ├── testing.md          # Testing guide
-│   │   └── contributing.md     # Contribution guide
-### [x] 3.5 CTest Integration and Test Discovery
-│   │   ├── basic-app.md        # Basic application tutorial
-│   │   ├── graphics-demo.md    # Graphics programming guide
-### [ ] 3.6 Code Coverage Setup
-│   └── reference/              # Reference documentation
-│       ├── mergesource.md      # MergeSource library reference
-│       ├── build-options.md    # Build configuration reference
-│       └── platform-notes.md   # Platform-specific notes
-### [x] 4.1 Clang-Format Configuration
-│   ├── build/                  # Build automation
-│   │   ├── configure.sh        # Configuration script
-### [x] 4.2 Clang-Tidy Configuration
-│   │   └── package.sh          # Packaging script
-│   ├── test/                   # Testing automation
-### [ ] 4.3 Cppcheck Configuration
-- [ ] Create cppcheck configuration file
-- [ ] Set up platform-specific checks
-- [ ] Configure suppression list for false positives
-│   │   ├── format.sh           # Code formatting
-│   │   ├── analyze.sh          # Static analysis
-### [x] 4.4 Pre-commit Hooks
-│   ├── quality/                # Advanced code quality tools
-│   │   ├── complexity.sh       # Complexity analysis
-### [x] 4.5 Advanced Code Quality Tools
-│   │   ├── dependencies.sh     # Dependency analysis
-│   │   ├── duplicates.sh       # Duplication detection
-### [x] 4.6 Linting Scripts
-│   │   ├── performance.sh      # Performance profiling
-│   │   └── report.sh           # Quality reporting
-### [x] 4.7 Quality Gates and Automation
-│       ├── generate_api.sh     # API doc generation
-│       └── deploy_pages.sh     # GitHub Pages deployment
-├── cmake/                      # CMake modules
-│   ├── modules/                # Custom CMake modules
-### [x] 5.1 Main CI Workflow (.github/workflows/ci.yml)
-│   └── presets/                # CMake presets for platforms
-├── examples/                   # Example projects
-### [ ] 5.2 Android Build Workflow
-│   ├── graphics_demo/          # OpenGL/ES example
-│   └── network_client/         # Networking example
-### [x] 5.3 Code Quality Workflow
-├── .clang-tidy                # Static analysis rules
-├── .gitignore                 # Git ignore patterns
-### [x] 5.4 GitHub Pages Documentation Workflow
-├── .pre-commit-config.yaml    # Pre-commit hooks
-├── CMakeLists.txt             # Root CMake configuration
-### [ ] 5.5 Release Workflow
-├── LICENSE                    # MIT License
-├── README.md                  # Project documentation
-├── CHANGELOG.md               # Change history
-├── CONTRIBUTING.md            # Contribution guidelines
-### [x] 6.1 README.md Creation
-```
+# C11 Multiplatform Template Repository Setup Plan
+# "c11-multiplatform-template" Implementation Guide (Concise Checklist)
 
-### [x] 6.2 Copilot Instructions (copilot-instructions.md)
-- [ ] CMakeLists.txt with C11 enforcement and MergeSource integration
-- [ ] CMakePresets.json for platform-specific builds
-### [x] 6.3 GitHub Pages Documentation Setup
-- [ ] .gitattributes for consistent line endings
-- [ ] LICENSE file (MIT)
-### [ ] 6.4 API Documentation (Doxygen)
----
+Overview: This checklist tracks the implementation of a C11-only, multi-platform template using MergeSource files without external runtime dependencies. It reflects the current repo status and the remaining manual steps.
 
-### [x] 6.5 Build Guides
-
-### [ ] 2.1 Root CMakeLists.txt Configuration
-```cmake
-cmake_minimum_required(VERSION 3.20)
-### [x] 7.1 Hello World Example
-    VERSION 1.0.0
-    LANGUAGES C
-### [ ] 7.2 Graphics Demo Example
-)
-
-### [ ] 7.3 Network Client Example
-set(CMAKE_C_STANDARD 11)
-set(CMAKE_C_STANDARD_REQUIRED ON)
-### [ ] 7.4 Project Template Generator
-
-# Build options
-option(BUILD_TESTS "Build unit tests" ON)
-option(BUILD_EXAMPLES "Build examples" ON)
-### [x] 8.1 Git Configuration
-option(ENABLE_STATIC_ANALYSIS "Enable static analysis" ON)
-
-### [x] 8.2 License & Legal
-include(cmake/modules/PlatformDetection.cmake)
-include(cmake/modules/CompilerFlags.cmake)
-### [ ] 8.3 Quality Assurance
-```
-
-### [ ] 8.4 Repository Finalization
-- [ ] cmake/modules/PlatformDetection.cmake - Auto-detect target platform
-- [ ] cmake/modules/CompilerFlags.cmake - Platform-specific compiler flags
-- [ ] cmake/modules/MergeSourceIntegration.cmake - MergeSource library setup
-- [ ] cmake/toolchains/ - Cross-compilation toolchains for each platform
-
-### [ ] 2.3 CMake Presets for Multi-Platform
-```json
-{
-    "version": 3,
-    "configurePresets": [
-        {
-            "name": "windows-msvc-debug",
-            "displayName": "Windows MSVC Debug",
-            "generator": "Visual Studio 17 2022",
-            "cacheVariables": {
-                "CMAKE_BUILD_TYPE": "Debug",
-                "CMAKE_C_COMPILER": "cl"
-            }
-        },
-        {
-            "name": "linux-gcc-release",
-            "displayName": "Linux GCC Release",
-            "generator": "Unix Makefiles",
-            "cacheVariables": {
-                "CMAKE_BUILD_TYPE": "Release",
-                "CMAKE_C_COMPILER": "gcc"
-            }
-        },
-        {
-            "name": "macos-clang-debug",
-            "displayName": "macOS Clang Debug",
-            "generator": "Xcode",
-            "cacheVariables": {
-                "CMAKE_BUILD_TYPE": "Debug",
-                "CMAKE_C_COMPILER": "clang"
-            }
-        },
-        {
-            "name": "android-ndk",
-            "displayName": "Android NDK",
-            "generator": "Ninja",
-            "toolchainFile": "cmake/toolchains/android.cmake",
-            "cacheVariables": {
-                "ANDROID_ABI": "arm64-v8a",
-                "ANDROID_PLATFORM": "android-21"
-            }
-        }
-    ]
-}
-```
-
-### [ ] 2.4 Compiler Flag Configuration
-- [ ] Windows MSVC: `/std:c11 /W4 /WX /analyze`
-- [ ] Linux GCC: `-std=c11 -Wall -Wextra -Werror -pedantic`
-- [ ] macOS Clang: `-std=c11 -Wall -Wextra -Werror -pedantic`
-- [ ] Android NDK: `-std=c11 -Wall -Wextra -fPIC`
-
----
-
-## PHASE 3: Unit Testing Infrastructure
-
-### [ ] 3.1 Unity Framework Integration
-- [ ] Download Unity framework source (unity.c, unity.h, unity_internals.h)
-- [ ] Place in tests/unity/ directory
-- [ ] Create tests/unity/CMakeLists.txt for Unity compilation
-- [ ] Configure Unity with custom assertion macros
-
-### [ ] 3.2 CMock Integration (Optional)
-- [ ] Download CMock for mocking capabilities
-- [ ] Configure CMock generation scripts
-- [ ] Integrate with CMake build system
-
-### [ ] 3.3 Test Structure Setup (One Test Per File)
-```
-tests/
-├── unity/                      # Unity framework
-│   ├── unity.c
-│   ├── unity.h
-│   └── unity_internals.h
-├── core/                       # Core functionality tests (one test per file)
-│   ├── memory/
-│   │   ├── test_malloc_free.c             # Basic allocation/deallocation
-│   │   ├── test_memory_debug.c            # Memory debugging features
-│   │   ├── test_memory_bounds.c           # Bounds checking
-│   │   └── test_memory_leaks.c            # Leak detection
-│   ├── math/
-│   │   ├── test_matrix_operations.c       # Matrix math tests
-│   │   ├── test_vector_math.c             # Vector operations
-│   │   ├── test_noise_generation.c        # Noise algorithms
-│   │   └── test_precision_handling.c      # Float/double precision
-│   ├── strings/
-│   │   ├── test_string_creation.c         # String allocation/creation
-│   │   ├── test_string_manipulation.c     # String operations
-│   │   ├── test_string_parsing.c          # Parsing functions
-│   │   └── test_string_encoding.c         # Encoding/decoding
-│   ├── containers/
-│   │   ├── test_array_operations.c        # Dynamic arrays
-│   │   ├── test_linked_lists.c            # List operations
-│   │   └── test_hash_tables.c             # Hash table functionality
-│   └── utilities/
-│       ├── test_path_handling.c           # Path operations
-│       ├── test_sorting.c                 # Sorting algorithms
-│       └── test_type_conversion.c         # Type conversions
-├── platform/                  # Platform-specific tests (one test per file)
-│   ├── threading/
-│   │   ├── test_mutex_creation.c          # Mutex initialization
-│   │   ├── test_mutex_locking.c           # Locking mechanisms
-│   │   ├── test_thread_creation.c         # Thread spawning
-│   │   ├── test_thread_synchronization.c  # Thread sync primitives
-│   │   └── test_atomic_operations.c       # Atomic operations
-│   ├── file_io/
-│   │   ├── test_file_open_close.c         # Basic file operations
-│   │   ├── test_file_read_write.c         # Read/write operations
-│   │   ├── test_directory_operations.c    # Directory handling
-│   │   └── test_file_permissions.c        # Permission handling
-│   ├── networking/
-│   │   ├── test_socket_creation.c         # Socket initialization
-│   │   ├── test_connection_handling.c     # Connection management
-│   │   ├── test_data_transmission.c       # Send/receive operations
-│   │   └── test_protocol_parsing.c        # Protocol handling
-│   ├── graphics/
-│   │   ├── test_window_creation.c         # Window management
-│   │   ├── test_opengl_context.c          # OpenGL context setup
-│   │   ├── test_input_handling.c          # Input event processing
-│   │   └── test_rendering_pipeline.c      # Basic rendering
-│   └── system/
-│       ├── test_time_functions.c          # Time operations
-│       ├── test_shared_memory.c           # Shared memory access
-│       └── test_library_loading.c         # Dynamic library loading
-├── integration/                # Integration tests (one scenario per file)
-│   ├── workflows/
-│   │   ├── test_app_lifecycle.c           # Full app startup/shutdown
-│   │   ├── test_render_loop.c             # Complete render cycle
-│   │   └── test_event_processing.c        # End-to-end event handling
-│   ├── cross_platform/
-│   │   ├── test_windows_linux_compat.c    # Cross-platform compatibility
-│   │   ├── test_macos_android_compat.c    # Mobile/desktop compatibility
-│   │   └── test_endian_compatibility.c    # Endianness handling
-│   └── performance/
-│       ├── test_memory_performance.c      # Memory allocation benchmarks
-│       ├── test_rendering_performance.c   # Rendering benchmarks
-│       └── test_network_performance.c     # Network throughput tests
-├── helpers/                    # Test utilities and helpers
-│   ├── test_helpers.h                     # Common test utilities
-│   ├── mock_generators.c                  # Mock object generators
-│   ├── assertion_extensions.c             # Custom assertions
-│   └── deterministic_random.c             # Deterministic randomness
-└── CMakeLists.txt             # Test build configuration
-```
-
-### [ ] 3.4 Deterministic Testing Requirements
-- [ ] All tests must be deterministic and reproducible
-- [ ] No time-based tests that could be flaky
-- [ ] Use deterministic random number generators for randomized tests
-- [ ] Mock external dependencies to ensure consistent behavior
-- [ ] Implement timeout mechanisms for tests that could hang
-- [ ] Create test isolation to prevent cross-test contamination
-
-### [ ] 3.5 CTest Integration and Test Discovery
-- [ ] Configure CTest for automated test execution
-- [ ] Set up test discovery and execution
-- [ ] Configure parallel test execution
-- [ ] Add test timeout configurations
-
-### [ ] 3.6 Code Coverage Setup
-- [ ] Configure gcov/lcov for GCC/Clang
-- [ ] Set up OpenCppCoverage for MSVC
-- [ ] Create coverage reporting scripts
-- [ ] Integrate with CI/CD for coverage reports
-
----
-
-## PHASE 4: Code Quality & Linting
-
-### [ ] 4.1 Clang-Format Configuration
-Create `.clang-format` with LLVM base style:
-```yaml
-BasedOnStyle: LLVM
-IndentWidth: 4
-TabWidth: 4
-UseTab: Never
-ColumnLimit: 100
-BreakBeforeBraces: Allman
-IndentCaseLabels: true
-SpaceAfterCStyleCast: true
-AlignConsecutiveAssignments: true
-AlignConsecutiveDeclarations: true
-```
-
-### [ ] 4.2 Clang-Tidy Configuration
-Create `.clang-tidy` with modern C checks:
-```yaml
-Checks: >
-  clang-diagnostic-*,
-  clang-analyzer-*,
-  readability-*,
-  modernize-*,
-  performance-*,
-  portability-*,
-  cert-*,
-  misc-*,
-  -readability-magic-numbers,
-  -cert-err58-cpp
-```
-
-### [ ] 4.3 Cppcheck Configuration
-- [ ] Create cppcheck configuration file
-- [ ] Set up platform-specific checks
-- [ ] Configure suppression list for false positives
-
-### [ ] 4.4 Pre-commit Hooks
-Create `.pre-commit-config.yaml`:
-```yaml
-repos:
-  - repo: local
-    hooks:
-      - id: clang-format
-        name: clang-format
-        entry: clang-format
-        language: system
-        files: \.(c|h)$
-        args: [-i]
-      - id: clang-tidy
-        name: clang-tidy
-        entry: clang-tidy
-        language: system
-        files: \.(c|h)$
-        args: [--format-style=file]
-```
-
-### [ ] 4.5 Advanced Code Quality Tools
-- [ ] scripts/quality/complexity.sh - Cyclomatic complexity analysis
-- [ ] scripts/quality/metrics.sh - Code metrics collection (SLOC, functions, etc.)
-- [ ] scripts/quality/dependencies.sh - Dependency analysis and visualization
-- [ ] scripts/quality/duplicates.sh - Code duplication detection
-- [ ] scripts/quality/security.sh - Security vulnerability scanning
-- [ ] scripts/quality/performance.sh - Performance profiling and analysis
-- [ ] scripts/quality/report.sh - Generate comprehensive quality report
-
-### [ ] 4.7 Quality Gates and Automation
-- [ ] scripts/lint/format.sh - Run clang-format on all files
-- [ ] scripts/lint/analyze.sh - Run static analysis tools
-- [ ] scripts/lint/check.sh - Verify code quality without modifications
-
-### [ ] 4.7 Quality Gates and Automation
-- [ ] Automated quality checks in CI/CD pipeline
-- [ ] Quality score calculation and trending
-- [ ] Fail builds on quality threshold violations
-- [ ] Generate quality reports for each commit/PR
-
----
-
-## PHASE 5: CI/CD Pipeline Setup
-
-### [ ] 5.1 Main CI Workflow (.github/workflows/ci.yml)
-```yaml
-name: CI
-
-on:
-  push:
-    branches: [ main, develop ]
-  pull_request:
-    branches: [ main ]
-
-jobs:
-  build-and-test:
-    strategy:
-      matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
-        build_type: [Debug, Release]
-        include:
-          - os: ubuntu-latest
-            cc: gcc
-            cxx: g++
-          - os: windows-latest
-            cc: cl
-            cxx: cl
-          - os: macos-latest
-            cc: clang
-            cxx: clang++
-    
-    runs-on: ${{ matrix.os }}
-    
-    steps:
-    - uses: actions/checkout@v4
-    
-    - name: Setup Build Environment
-      uses: ./.github/actions/setup-build-env
-      with:
-        os: ${{ matrix.os }}
-    
-    - name: Configure CMake
-      run: |
-        cmake -B build -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
-              -DBUILD_TESTS=ON -DENABLE_COVERAGE=ON
-    
-    - name: Build
-      run: cmake --build build --config ${{ matrix.build_type }}
-    
-    - name: Test
-      run: ctest --test-dir build --output-on-failure
-    
-    - name: Upload Coverage
-      if: matrix.os == 'ubuntu-latest' && matrix.build_type == 'Debug'
-      uses: codecov/codecov-action@v3
-```
-
-### [ ] 5.2 Android Build Workflow
-- [ ] Separate workflow for Android NDK builds
-- [ ] Matrix jobs for different Android ABIs
-- [ ] Emulator testing setup
-
-### [ ] 5.3 Code Quality Workflow
-- [ ] Dedicated workflow for linting and static analysis
-- [ ] Integration with SonarCloud or similar service
-- [ ] Security scanning with CodeQL
-
-### [ ] 5.4 GitHub Pages Documentation Workflow
-```yaml
-name: Documentation
-
-on:
-  push:
-    branches: [ main ]
-    paths: ['docs/**', 'src/**', 'include/**']
-  pull_request:
-    paths: ['docs/**']
-
-jobs:
-  build-docs:
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v4
-    
-    - name: Setup Doxygen
-      run: sudo apt-get install -y doxygen graphviz
-    
-    - name: Generate API Documentation
-      run: |
-        cd docs
-        doxygen Doxyfile
-    
-    - name: Setup Pages
-      uses: actions/configure-pages@v3
-    
-    - name: Build with Jekyll
-      uses: actions/jekyll-build-pages@v1
-      with:
-        source: ./docs
-        destination: ./_site
-    
-    - name: Upload Pages Artifact
-      uses: actions/upload-pages-artifact@v2
-
-  deploy:
-    needs: build-docs
-    runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main'
-    
-    permissions:
-      pages: write
-      id-token: write
-    
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    
-    steps:
-    - name: Deploy to GitHub Pages
-      id: deployment
-      uses: actions/deploy-pages@v2
-```
-
-### [ ] 5.5 Release Workflow
-- [ ] Automated release creation on tag push
-- [ ] Cross-platform binary artifact generation
-- [ ] Changelog generation and release notes
-
----
-
-## PHASE 6: Documentation & Developer Experience
-
-### [ ] 6.1 README.md Creation
-Comprehensive README including:
-- [ ] Project overview and goals
-- [ ] Quick start guide
-- [ ] Platform-specific build instructions
-- [ ] MergeSource integration explanation
-- [ ] API documentation links
-- [ ] Contributing guidelines
-- [ ] CI/CD status badges
-- [ ] License information
-
-### [ ] 6.2 Copilot Instructions (copilot-instructions.md)
+PHASE 1: Repository & Build System
+- [x] Initialize repository structure (00_c_source_files/, include/, src/, cmake/, tests/, examples/, docs/, .github/)
+- [x] Root CMakeLists.txt with C11 enforcement and MergeSource integration
+- [x] CMakePresets.json with Windows/Linux/macOS/Android presets
+- [x] CMake modules: PlatformDetection, CompilerFlags, MergeSourceIntegration, CodeCoverage
+- [x] Toolchains: Android NDK forwarding toolchain
+- [x] Base files: .gitignore, .gitattributes, LICENSE (MIT), README, CONTRIBUTING, CHANGELOG
 ```markdown
 # GitHub Copilot Instructions for C11 Multiplatform Template
+- [x] Deterministic, one-test-per-file structure scaffolded (tests/core/... etc.)
+- [x] Minimal Unity-like harness in tests/unity/ (temporary placeholder)
+- [x] CTest integration and test registration
+- [x] Coverage support for GCC/Clang (Linux/macOS)
+- [ ] Replace Unity placeholders with official Unity sources (unity.c, unity.h, unity_internals.h)
+- [ ] Optional: CMock integration for mocks
+- [ ] Windows coverage (OpenCppCoverage or alternative) [optional]
 
 ## Code Standards
+- [x] .clang-format configuration
+- [x] .clang-tidy configuration
+- [x] cppcheck suppression file
+- [x] Pre-commit hooks
+- [x] Quality scripts (complexity, metrics, deps, duplicates, security, performance, report)
+- [x] Lint scripts (format, analyze, check)
 - **C11 Only**: Strictly adhere to C11 standard. No C++ features, no GNU extensions.
 - **Self-Documenting**: Write crystal-clear code with concise comments only where ambiguity exists.
+- [x] CI build/test matrix (Windows, Ubuntu, macOS)
+- [x] Lint workflow (clang-format, clang-tidy, cppcheck)
+- [x] Docs build and GitHub Pages deploy
+- [x] Android NDK build workflow
+- [x] Coverage workflow (Ubuntu HTML report artifact)
+- [x] Release workflow (tag builds and upload artifacts)
+- [ ] Optional: Android emulator-based tests
+- [ ] Optional: CodeQL/SonarCloud
 - **Maintainable**: Modular functions <100 lines, consistent snake_case naming, checked error returns.
 - **Optimized**: Use inline/static for performance-critical code, avoid unnecessary allocations.
+- [x] Jekyll site scaffold and guides
+- [x] Doxygen config (docs/Doxyfile) and generation script
+- [x] API docs integrated into Pages workflow
+
+Examples
+- [x] hello_world example
+- [x] graphics_demo stub
+- [x] network_client stub
+
+Notes
+- The minimal Unity-like harness compiles and runs; replace with official Unity for full feature parity.
+- MergeSource files are used as-is from 00_c_source_files/.
+
+Manual Steps (see 01_roadmaps/remaining_steps.txt for details)
+- Install local tools (clang-format, clang-tidy, cppcheck, lcov, pre-commit, Android NDK)
+- Vendor Unity and optionally CMock
+- Optionally configure Windows coverage and Android emulator tests
 - **Portable**: Use ONLY MergeSource abstractions for OS calls, minimize #ifdef usage.
 
 ## File Organization and Refactoring Rules

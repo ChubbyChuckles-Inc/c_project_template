@@ -1,0 +1,58 @@
+# C11 Multiplatform Template Repository Setup Plan
+# "c11-multiplatform-template" Implementation Guide (Concise Checklist)
+
+Overview: This checklist tracks the implementation of a C11-only, multi-platform template using MergeSource files without external runtime dependencies. It reflects the current repo status and the remaining manual steps.
+
+PHASE 1: Repository & Build System
+- [x] Initialize repository structure (00_c_source_files/, include/, src/, cmake/, tests/, examples/, docs/, .github/)
+- [x] Root CMakeLists.txt with C11 enforcement and MergeSource integration
+- [x] CMakePresets.json with Windows/Linux/macOS/Android presets
+- [x] CMake modules: PlatformDetection, CompilerFlags, MergeSourceIntegration, CodeCoverage
+- [x] Toolchains: Android NDK forwarding toolchain
+- [x] Base files: .gitignore, .gitattributes, LICENSE (MIT), README, CONTRIBUTING, CHANGELOG
+
+PHASE 2: Testing
+- [x] Deterministic, one-test-per-file structure scaffolded (tests/core/... etc.)
+- [x] Minimal Unity-like harness in tests/unity/ (temporary placeholder)
+- [x] CTest integration and test registration
+- [x] Coverage support for GCC/Clang (Linux/macOS)
+- [ ] Replace Unity placeholders with official Unity sources (unity.c, unity.h, unity_internals.h)
+- [ ] Optional: CMock integration for mocks
+- [ ] Windows coverage (OpenCppCoverage or alternative) [optional]
+
+PHASE 3: Linting & Quality
+- [x] .clang-format configuration
+- [x] .clang-tidy configuration
+- [x] cppcheck suppression file
+- [x] Pre-commit hooks
+- [x] Quality scripts (complexity, metrics, deps, duplicates, security, performance, report)
+- [x] Lint scripts (format, analyze, check)
+
+PHASE 4: CI/CD Workflows
+- [x] CI build/test matrix (Windows, Ubuntu, macOS)
+- [x] Lint workflow (clang-format, clang-tidy, cppcheck)
+- [x] Docs build and GitHub Pages deploy
+- [x] Android NDK build workflow
+- [x] Coverage workflow (Ubuntu HTML report artifact)
+- [x] Release workflow (tag builds and upload artifacts)
+- [ ] Optional: Android emulator-based tests
+- [ ] Optional: CodeQL/SonarCloud
+
+PHASE 5: Documentation
+- [x] Jekyll site scaffold and guides
+- [x] Doxygen config (docs/Doxyfile) and generation script
+- [x] API docs integrated into Pages workflow
+
+Examples
+- [x] hello_world example
+- [x] graphics_demo stub
+- [x] network_client stub
+
+Notes
+- The minimal Unity-like harness compiles and runs; replace with official Unity for full feature parity.
+- MergeSource files are used as-is from 00_c_source_files/.
+
+Manual Steps (see 01_roadmaps/remaining_steps.txt for details)
+- Install local tools (clang-format, clang-tidy, cppcheck, lcov, pre-commit, Android NDK)
+- Vendor Unity and optionally CMock
+- Optionally configure Windows coverage and Android emulator tests
