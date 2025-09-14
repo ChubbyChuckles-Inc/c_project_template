@@ -1,28 +1,36 @@
-Manual steps required to complete setup:
 
-1) Unity test framework:
-   - By default, tests auto-fetch the official Unity sources during CMake configure (USE_OFFICIAL_UNITY=ON).
-   - If you prefer vendoring, replace placeholders in tests/unity/ with unity.c, unity.h, unity_internals.h from https://github.com/ThrowTheSwitch/Unity.
+# Remaining steps (TODO list)
 
-2) CMock (optional):
-   - If using CMock for mock generation, install Ruby and the CMock gem, and use scripts/test/generate_mocks.sh with your headers.
+1. Unity test framework (completed)
+   - [x] Verify `USE_OFFICIAL_UNITY` behavior during CMake configure (default: ON).
+   - [x] If vendoring is preferred, add `unity.c`, `unity.h`, `unity_internals.h` to `tests/unity/` and set `-DUSE_OFFICIAL_UNITY=OFF`.
+   - [x] Validate tests run with the fetched Unity sources in CI and locally.
 
-3) Tools installation on developer machines:
-   - clang-format, clang-tidy, cppcheck
-   - lcov/genhtml (for coverage on Linux)
-   - pre-commit (pipx or pip) and run: pre-commit install
-   - Android NDK for Android builds; set ANDROID_NDK or ANDROID_NDK_HOME
-   - On Windows, consider installing OpenCppCoverage if Windows coverage is desired
+2. CMock integration (optional)
+   - [ ] Install Ruby and the CMock gem (`gem install cmock`).
+   - [ ] Use `scripts/test/generate_mocks.sh <header.h> <out_dir>` to generate mocks.
+   - [ ] Optionally wire mock generation into CI or CMake if desired.
 
-4) Doxygen:
-   - Create docs/Doxyfile and configure PROJECT_NAME, INPUT, OUTPUT_DIRECTORY
-   - Update scripts/docs/generate_api.sh to call doxygen
+3. Developer tools installation
+   - [x] Update scripts to detect missing tools and print helpful messages.
+   - [ ] Ensure developer machines have:
+       - `clang-format`, `clang-tidy`, `cppcheck`
+       - `lcov` / `genhtml` (for coverage on Linux)
+       - `pre-commit` and run `pre-commit install`
+       - Android NDK (set `ANDROID_NDK` or `ANDROID_NDK_HOME`)
+       - `OpenCppCoverage` on Windows for coverage
 
-5) Quality tools :
-   - Install lizard, cloc, include-what-you-use, graphviz, jscpd or equivalents
-   - Update scripts in scripts/quality/ to call installed tools
+4. Doxygen configuration
+   - [x] Finalize `docs/Doxyfile` with `PROJECT_NAME`, `INPUT`, and `OUTPUT_DIRECTORY`.
+   - [x] Ensure `scripts/docs/generate_api.sh` calls `doxygen` and produces docs into `docs/api` or `_site` as used by Pages.
 
-6) Windows coverage :
-   - Configure coverage tools on Windows (e.g., OpenCppCoverage) and wire into scripts/test/coverage.sh or a Windows-specific script
-   - Update CI to upload Windows coverage if configured
+5. Quality tools (optional)
+   - [ ] Install and configure advanced tools: `lizard`, `cloc`, `include-what-you-use`, `graphviz`, `jscpd`.
+   - [x] Update `scripts/quality/*` to call installed tools and write a combined report.
+
+6. Windows coverage & CI wiring (optional)
+   - [ ] Configure `OpenCppCoverage` or similar on Windows and integrate with `scripts/test/coverage.sh` or a Windows-specific script.
+   - [ ] Update CI to upload Windows coverage artifacts when available.
+
+Notes:
 

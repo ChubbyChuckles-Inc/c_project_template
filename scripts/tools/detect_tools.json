@@ -1,0 +1,70 @@
+[
+  {
+    "Tool": "clang-format",
+    "Installed": false
+  },
+  {
+    "Tool": "clang-tidy",
+    "Installed": false
+  },
+  {
+    "Tool": "cppcheck",
+    "Installed": false
+  },
+  {
+    "Tool": "lcov",
+    "Installed": false
+  },
+  {
+    "Tool": "genhtml",
+    "Installed": false
+  },
+  {
+    "Tool": "pre-commit",
+    "Installed": false
+  },
+  {
+    "Tool": "ndk-build",
+    "Installed": false
+  },
+  {
+    "Tool": "doxygen",
+    "Installed": true
+  },
+  {
+    "Tool": "lizard",
+    "Installed": true
+  },
+  {
+    "Tool": "cloc",
+    "Installed": true
+  },
+  {
+    "Tool": "include-what-you-use",
+    "Installed": false
+  },
+  {
+    "Tool": "jscpd",
+    "Installed": true
+  },
+  {
+    "Tool": "OpenCppCoverage",
+    "Installed": false
+  },
+  {
+    "Tool": "ruby",
+    "Installed": false
+  },
+  {
+    "Tool": "gem",
+    "Installed": false
+  },
+  {
+    "Tool": "ctest",
+    "Installed": true
+  },
+  {
+    "Tool": "cmake",
+    "Installed": true
+  }
+]

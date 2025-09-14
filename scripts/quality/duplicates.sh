@@ -1,3 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
-echo "NOTE: Add code duplication detection (e.g., PMD CPD or jscpd)." >&2
+if command -v jscpd >/dev/null 2>&1; then
+	jscpd --languages c --reporters console --min-tokens 50 --ignore "**/build/**,**/00_c_source_files/**" . || true
+else
+	echo "WARN: jscpd not found; skipping duplication detection" >&2
+fi

@@ -1,0 +1,9 @@
+# Example CMock configuration (adjust as needed)
+:mock_path: tests/mocks
+:plugins:
+  - :array
+  - :callback
+  - :cexception
+:enforce_strict_ordering: true
+:framework: unity
+:when_no_prototypes: :warn
