@@ -1,11 +1,11 @@
 Manual steps required to complete setup:
 
 1) Unity test framework:
-   - Replace placeholders in tests/unity/ with official files from https://github.com/ThrowTheSwitch/Unity
-     - unity.c, unity.h, unity_internals.h
+   - By default, tests auto-fetch the official Unity sources during CMake configure (USE_OFFICIAL_UNITY=ON).
+   - If you prefer vendoring, replace placeholders in tests/unity/ with unity.c, unity.h, unity_internals.h from https://github.com/ThrowTheSwitch/Unity.
 
 2) CMock (optional):
-   - If using CMock for mock generation, integrate ThrowTheSwitch/CMock and add generation scripts.
+   - If using CMock for mock generation, install Ruby and the CMock gem, and use scripts/test/generate_mocks.sh with your headers.
 
 3) Tools installation on developer machines:
    - clang-format, clang-tidy, cppcheck
@@ -18,15 +18,11 @@ Manual steps required to complete setup:
    - Create docs/Doxyfile and configure PROJECT_NAME, INPUT, OUTPUT_DIRECTORY
    - Update scripts/docs/generate_api.sh to call doxygen
 
-5) Quality tools (optional):
+5) Quality tools :
    - Install lizard, cloc, include-what-you-use, graphviz, jscpd or equivalents
    - Update scripts in scripts/quality/ to call installed tools
 
-6) Windows coverage (optional):
+6) Windows coverage :
    - Configure coverage tools on Windows (e.g., OpenCppCoverage) and wire into scripts/test/coverage.sh or a Windows-specific script
    - Update CI to upload Windows coverage if configured
 
-7) Android emulator tests (optional):
-   - Add emulator setup steps in .github/workflows/android.yml
-   - Build an instrumented or host-based test runner that can run on the emulator if needed
-   - Keep tests deterministic; avoid flakiness due to emulator timing

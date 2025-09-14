@@ -16,9 +16,9 @@ PHASE 2: Testing
 - [x] Minimal Unity-like harness in tests/unity/ (temporary placeholder)
 - [x] CTest integration and test registration
 - [x] Coverage support for GCC/Clang (Linux/macOS)
-- [ ] Replace Unity placeholders with official Unity sources (unity.c, unity.h, unity_internals.h)
-- [ ] Optional: CMock integration for mocks
-- [ ] Windows coverage (OpenCppCoverage or alternative) [optional]
+- [x] Replace Unity placeholders with official Unity sources (auto-fetch via CMake option)
+- [x] Optional: CMock integration scaffolding (scripts and CMake option)
+- [x] Windows coverage workflow (OpenCppCoverage, manual trigger)
 
 PHASE 3: Linting & Quality
 - [x] .clang-format configuration
@@ -36,7 +36,7 @@ PHASE 4: CI/CD Workflows
 - [x] Coverage workflow (Ubuntu HTML report artifact)
 - [x] Release workflow (tag builds and upload artifacts)
 - [ ] Optional: Android emulator-based tests
-- [ ] Optional: CodeQL/SonarCloud
+- [x] Optional: CodeQL/SonarCloud (CodeQL added)
 
 PHASE 5: Documentation
 - [x] Jekyll site scaffold and guides

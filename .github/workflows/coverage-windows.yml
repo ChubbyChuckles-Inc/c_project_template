@@ -1,0 +1,37 @@
+name: Coverage (Windows)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  coverage-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install OpenCppCoverage
+        shell: pwsh
+        run: |
+          choco install -y OpenCppCoverage || echo "OpenCppCoverage not installed via choco; skipping"
+      - name: Configure
+        shell: pwsh
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug -DBUILD_TESTS=ON
+      - name: Build
+        shell: pwsh
+        run: cmake --build build --config Debug
+      - name: Run tests with coverage
+        shell: pwsh
+        run: |
+          if (Get-Command OpenCppCoverage -ErrorAction SilentlyContinue) {
+            New-Item -ItemType Directory -Force -Path coverage | Out-Null
+            $ctestCmd = "ctest --output-on-failure";
+            OpenCppCoverage --sources . --export_type cobertura --export_path coverage\coverage.xml -- $ctestCmd
+          } else {
+            Write-Host "OpenCppCoverage not available; running tests without coverage"
+            ctest --output-on-failure
+          }
+      - name: Upload coverage artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-windows
+          path: coverage
