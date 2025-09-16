@@ -48,13 +48,6 @@ if(BUILD_TESTS)
     add_subdirectory(tests)
 endif()
 
-# Examples
-if(BUILD_EXAMPLES)
-    add_subdirectory(examples/hello_world)
-    add_subdirectory(examples/graphics_demo)
-    add_subdirectory(examples/network_client)
-endif()
-
 # Install rules (basic)
 install(TARGETS project_core project_app
     RUNTIME DESTINATION bin
