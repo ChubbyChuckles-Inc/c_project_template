@@ -13,27 +13,33 @@ target_include_directories(mergesource_interface INTERFACE ${MERGESOURCE_ROOT})
 
 # If building MergeSource sources is desired (optional)
 if(ENABLE_MERGESOURCE_BUILD)
+    # Build a minimal subset needed for windowing/input: Forge (f_*), Imagine (i_*), Betray (b_*).
+    # Exclude Relinquish (r_*), Seduce (s_*), Persuade2 (p2_*), HxA (hxa_*), etc. to avoid unrelated compile issues.
     file(GLOB MERGESOURCE_CORE
         ${MERGESOURCE_ROOT}/f_*.c
         ${MERGESOURCE_ROOT}/i_*.c
-        ${MERGESOURCE_ROOT}/t_*.c
-        ${MERGESOURCE_ROOT}/r_*.c
-        ${MERGESOURCE_ROOT}/v_*.c
-        ${MERGESOURCE_ROOT}/hxa_*.c
-        ${MERGESOURCE_ROOT}/p2_*.c
-        ${MERGESOURCE_ROOT}/s_*.c
-        ${MERGESOURCE_ROOT}/b_*.c
-        ${MERGESOURCE_ROOT}/observatory_*.c
-        ${MERGESOURCE_ROOT}/assemble_json.c
-        ${MERGESOURCE_ROOT}/hxa_convesion_generated.c
     )
+    # Pick only the Windows Betray sources explicitly
+    list(APPEND MERGESOURCE_CORE
+        ${MERGESOURCE_ROOT}/b_main.c
+        ${MERGESOURCE_ROOT}/b_win32_main.c
+        ${MERGESOURCE_ROOT}/b_win32_key_codes.c
+    )
+    # Exclude problematic or non-Windows sources
+    # Filter out problematic or platform-mismatched sources if the glob picked them up
+    list(FILTER MERGESOURCE_CORE EXCLUDE REGEX ".*/i_shared_memory\\.c$")
+    list(FILTER MERGESOURCE_CORE EXCLUDE REGEX ".*/f_types\\.c$")
+    list(FILTER MERGESOURCE_CORE EXCLUDE REGEX ".*/b_x11\\.c$")
+    list(FILTER MERGESOURCE_CORE EXCLUDE REGEX ".*/b_android_main\\.c$")
+    list(FILTER MERGESOURCE_CORE EXCLUDE REGEX ".*/b_macos_main\\.c$")
     add_library(mergesource STATIC ${MERGESOURCE_CORE})
     target_include_directories(mergesource PUBLIC ${MERGESOURCE_ROOT})
     target_compile_definitions(mergesource PRIVATE FORGE_RELEASE_BUILD)
 
     # Link platform-specific libraries as needed
     if(WIN32)
-        target_link_libraries(mergesource PUBLIC user32 gdi32 ws2_32 winmm)
+        # Windows system libraries needed by MergeSource (windowing, OpenGL, sockets, multimedia, common dialogs, shell)
+        target_link_libraries(mergesource PUBLIC user32 gdi32 ws2_32 winmm opengl32 comdlg32 shell32)
     elseif(APPLE)
         find_library(COCOA_FRAMEWORK Cocoa)
         find_library(OPENGL_FRAMEWORK OpenGL)

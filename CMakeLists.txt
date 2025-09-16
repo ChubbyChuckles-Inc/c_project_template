@@ -26,19 +26,17 @@ include(MergeSourceIntegration)
 # Public include directory
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)
 
-# Core library
-add_library(project_core STATIC
-    src/main.c
-)
-target_link_libraries(project_core PRIVATE mergesource_interface)
-target_include_directories(project_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
+# Core interface (headers + dependencies only)
+add_library(project_core INTERFACE)
+target_link_libraries(project_core INTERFACE mergesource_interface)
+target_include_directories(project_core INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/include)
 
 if(ENABLE_COVERAGE)
     include(CodeCoverage)
     enable_coverage_for_target(project_core)
 endif()
 
-# Executable (example app)
+# Executable (app)
 add_executable(project_app src/main.c)
 target_link_libraries(project_app PRIVATE project_core)
 
