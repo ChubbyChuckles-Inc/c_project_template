@@ -1,3 +1,7 @@
+/* Include guard to prevent multiple inclusion and enum redefinitions */
+#ifndef RELINQUISH_H
+#define RELINQUISH_H
+
 #if defined __cplusplus
 extern "C" {
 #endif
@@ -354,3 +358,5 @@ extern void		r_framebuffer_clear(float red, float green, float blue, float alpha
 #if defined __cplusplus
 }
 #endif
+
+#endif /* RELINQUISH_H */
