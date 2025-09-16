@@ -11,9 +11,9 @@ void *r_matrix_state = NULL;
 void r_matrix_set(RMatrix *m)
 {
 	if(m == NULL)
-		r_matrix_state = &r_default_matrix;
+		(RMatrix *)r_matrix_state = &r_default_matrix; 
 	else
-		r_matrix_state = m;
+		(RMatrix *)r_matrix_state = m;
 }
 
 void r_viewport(uint x_start, uint y_start, uint x_end, uint y_end)
@@ -21,15 +21,8 @@ void r_viewport(uint x_start, uint y_start, uint x_end, uint y_end)
 	glViewport(x_start, y_start, x_end, y_end);
 }
 
-
-
 RMatrix *r_matrix_get()
 {
-	if(!((RMatrix *)r_matrix_state)->multiplied)
-	{
-		f_matrix_multiplyf(((RMatrix *)r_matrix_state)->modelviewprojection, ((RMatrix *)r_matrix_state)->projection, ((RMatrix *)r_matrix_state)->matrix[((RMatrix *)r_matrix_state)->current]);
-		((RMatrix *)r_matrix_state)->multiplied = TRUE;
-	}
 	return (RMatrix *)r_matrix_state;
 }
 
@@ -97,9 +90,9 @@ void r_matrix_identity(RMatrix *matrix)
 {
 	static float t = 0.0;
 	float *m, f = 1.0;
+	uint i;
 	if(matrix == NULL)
 		matrix = (RMatrix *)r_matrix_state;
-	matrix->aspect = 1.0;
 	matrix->current = 0;
 	m = matrix->matrix[0];
 	matrix->multiplied = FALSE;
@@ -131,7 +124,7 @@ void r_matrix_push(RMatrix *matrix)
 	uint i;
 	if(matrix == NULL)
 		matrix = (RMatrix *)r_matrix_state;
-	if(matrix->current > R_MATRIX_STACK_SIZE - 2)
+	if(matrix->current > R_MATRIX_STACK_SIZE - 1)
 	{
 		uint *a = NULL;
 		printf("RELINQUISH Error: r_matrix_pop one too many (%u) matrixes in the stack.\n", matrix->current);
@@ -258,32 +251,6 @@ void r_matrix_normalize_scale(RMatrix *matrix)
 	f_normalize3f(&m[8]);
 }
 
-void r_matrix_cube_map(RMatrix *matrix, uint side)
-{
-	switch(side)
-	{
-		case 0 :
-			r_matrix_rotate(matrix, 90, 0, 1, 0);
-		break;
-		case 1 :
-			r_matrix_rotate(matrix, -90, 0, 1, 0);
-		break;
-		case 2 :
-			r_matrix_rotate(matrix, 180, 0, 1, 0);
-			r_matrix_rotate(matrix, 90, 1, 0, 0);
-		break;
-		case 3 :
-			r_matrix_rotate(matrix, 180, 0, 1, 0);
-			r_matrix_rotate(matrix, -90, 1, 0, 0);
-		break;
-		case 4 :
-			r_matrix_rotate(matrix, 180, 0, 1, 0);
-		break;
-		case 5 :
-		break;
-	}
-}
-
 
 void r_matrix_projection_screend(RMatrix *matrix, double *output, double x, double y, double z)
 {
@@ -319,38 +286,6 @@ void r_matrix_projection_screenf(RMatrix *matrix, float *output, float x, float 
 	output[2] = (model[2] * x) + (model[6] * y) + (model[10] * z) + model[14];
 	output[0] = output[0] / -output[2] / matrix->frustum[1] - matrix->frustum[0];
 	output[1] = output[1] / -output[2] / matrix->frustum[1] - matrix->frustum[2];
-}
-
-void r_matrix_projection_camerad(RMatrix *matrix, double *output, double x, double y, double z)
-{
-	float *model;
-	if(matrix == NULL)
-		matrix = (RMatrix *)r_matrix_state;
-	if(!matrix->multiplied)
-	{
-		f_matrix_multiplyf(matrix->modelviewprojection, matrix->projection, matrix->matrix[matrix->current]);
-		matrix->multiplied = TRUE;
-	}
-	model = matrix->matrix[matrix->current];
-	output[0] = (model[0] * x) + (model[4] * y) + (model[8] * z) + model[12];
-	output[1] = (model[1] * x) + (model[5] * y) + (model[9] * z) + model[13];
-	output[2] = (model[2] * x) + (model[6] * y) + (model[10] * z) + model[14];
-}
-
-void r_matrix_projection_cameraf(RMatrix *matrix, float *output, float x, float y, float z)
-{
-	float *model;
-	if(matrix == NULL)
-		matrix = (RMatrix *)r_matrix_state;
-	if(!matrix->multiplied)
-	{
-		f_matrix_multiplyf(matrix->modelviewprojection, matrix->projection, matrix->matrix[matrix->current]);
-		matrix->multiplied = TRUE;
-	}
-	model = matrix->matrix[matrix->current];
-	output[0] = (model[0] * x) + (model[4] * y) + (model[8] * z) + model[12];
-	output[1] = (model[1] * x) + (model[5] * y) + (model[9] * z) + model[13];
-	output[2] = (model[2] * x) + (model[6] * y) + (model[10] * z) + model[14];
 }
 
 void r_matrix_projection_worldf_save(RMatrix *matrix, float *output, float x, float y, float z)
@@ -665,8 +600,8 @@ boolean r_matrix_projection_axisf(RMatrix *matrix, float *output, float *pos, ui
 	pointer[0] -= camera[0];
 	pointer[1] -= camera[1];
 	pointer[2] -= camera[2];
-/*	if(0 < pointer[0] * camera[0] + pointer[1] * camera[1] + pointer[2] * camera[2])
-		return FALSE;*/
+	if(0 < pointer[0] * camera[0] + pointer[1] * camera[1] + pointer[2] * camera[2])
+		return FALSE;
 	f_normalize3f(pointer);
 	axis_vec[0] = camera[0] - pos[0];
 	axis_vec[1] = camera[1] - pos[1];
@@ -697,30 +632,30 @@ boolean r_matrix_projection_vectorf(RMatrix *matrix, float *output, float *pos, 
 	axis_vec[0] = camera[0] - pos[0];
 	axis_vec[1] = camera[1] - pos[1];
 	axis_vec[2] = camera[2] - pos[2];
-//	printf("axis_vec %f %f %f\n", axis_vec[0], axis_vec[1], axis_vec[2]);
+	printf("axis_vec %f %f %f\n", axis_vec[0], axis_vec[1], axis_vec[2]);
 	normalized[0] = vec[0];
 	normalized[1] = vec[1];
 	normalized[2] = vec[2];
 	f_normalize3f(normalized);
-//	printf("normalized %f %f %f\n", normalized[0], normalized[1], normalized[2]);
+	printf("normalized %f %f %f\n", normalized[0], normalized[1], normalized[2]);
 	f = normalized[0] * axis_vec[0] + normalized[1] * axis_vec[1] + normalized[2] * axis_vec[2];
 	axis_vec[0] -= normalized[0] * f;
 	axis_vec[1] -= normalized[1] * f;
 	axis_vec[2] -= normalized[2] * f;
 	f_normalize3f(axis_vec);
-//	printf("axis_vec %f %f %f\n", axis_vec[0], axis_vec[1], axis_vec[2]);
-//	printf("pos %f %f %f\n", pos[0], pos[1], pos[2]);
-//	printf("camera %f %f %f\n", camera[0], camera[1], camera[2]);
-//	printf("pointer %f %f %f\n", pointer[0], pointer[1], pointer[2]);
+	printf("axis_vec %f %f %f\n", axis_vec[0], axis_vec[1], axis_vec[2]);
+	printf("pos %f %f %f\n", pos[0], pos[1], pos[2]);
+	printf("camera %f %f %f\n", camera[0], camera[1], camera[2]);
+	printf("pointer %f %f %f\n", pointer[0], pointer[1], pointer[2]);
 	f_project3f(output, pos, axis_vec, camera, pointer);
-//	printf("output %f %f %f\n", output[0], output[1], output[2]);
+	printf("output %f %f %f\n", output[0], output[1], output[2]);
 	output[0] -= pos[0];
 	output[1] -= pos[1];
 	output[2] -= pos[2];
 	f = normalized[0] * output[0] + normalized[1] * output[1] + normalized[2] * output[2];
-//	printf("normalized = %f %f %f\n", normalized[0], normalized[1], normalized[2]);
-//	printf("output %f %f %f\n", output[0], output[1], output[2]);
-//	printf("f = %f\n", f);
+	printf("normalized = %f %f %f\n", normalized[0], normalized[1], normalized[2]);
+	printf("output %f %f %f\n", output[0], output[1], output[2]);
+	printf("f = %f\n", f);
 	output[0] = pos[0] + normalized[0] * f;
 	output[1] = pos[1] + normalized[1] * f;
 	output[2] = pos[2] + normalized[2] * f;

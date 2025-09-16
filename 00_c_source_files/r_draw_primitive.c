@@ -2,8 +2,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include "forge.h"
-#include "betray.h"
-#include "relinquish.h"
+#include "r_include.h"
 
 
 char *r_shader_color_vertex = 
@@ -117,7 +116,7 @@ char *r_shader_image_fragment =
 "void main()"
 "{"
 "	vec4 tex;"
-"	tex = texture2D(image, mapping).rgba;"
+"	tex = texture2D(image, mapping);"
 "	gl_FragColor = tex * col;"
 "}";
 
@@ -175,24 +174,25 @@ uint r_sprite_texture_id = -1;
 void *r_image_pool = NULL;
 void *r_image_section = NULL;
 
-RShader *r_vertex_color_shader = NULL;
-RShader *r_color_shader = NULL;
+RShader *r_vertex_color_shader;
+RShader *r_color_shader;
 uint r_color_location_color;
-RShader *r_image_shader = NULL;
+RShader *r_image_shader;
 uint r_image_location_uv;
 uint r_image_location_color;
 uint r_image_location_pos;
 uint r_image_location_size;
 uint r_image_location_pixel;
 
-RShader *r_texture_shader = NULL;
-RShader *r_surface_shader = NULL;
+RShader *r_texture_shader;
+
+RShader *r_surface_shader;
 uint r_surface_location_color;
 uint r_surface_location_pos;
 uint r_surface_location_size;
 uint r_surface_location_pixel;
 
-RShader *r_sprite_shader = NULL;
+RShader *r_sprite_shader;
 
 void r_primitive_image_aa_set(float *array, float pos_x, float pos_y, float alpha, float dist_x, float dist_y)
 {
@@ -208,22 +208,16 @@ void r_primitive_image_aa_set(float *array, float pos_x, float pos_y, float alph
 
 void r_primitive_init()
 {
-	RFormats vertex_format_types[3] = {R_FLOAT, R_FLOAT, R_FLOAT};
+	SUIFormats vertex_format_types[3] = {SUI_FLOAT, SUI_FLOAT, SUI_FLOAT};
 	uint vertex_format_size[3] = {3, 4, 4};
 	uint vertex_format_size_surface[2] = {4, 4};
 	float array[8 * 30], surface[3 * 6] = {0, 0, 0, 1, 0, 0, 1, 1, 0, 0, 0, 0, 1, 1, 0, 0, 1, 0};
 	char buffer[2048];
-	if(r_line_pool != NULL)
-		free(r_line_pool);
+	uint i;
+
 	r_line_pool = r_array_allocate(SUI_DRAW_LINE_BUFFER, vertex_format_types, vertex_format_size, 2, 0);
-	if(r_surface_pool != NULL)
-		free(r_surface_pool);
 	r_surface_pool = r_array_allocate(6, vertex_format_types, vertex_format_size, 1, 0);
-	if(r_image_pool != NULL)
-		free(r_image_pool);
 	r_image_pool = r_array_allocate(SUI_DRAW_IMAGE_BUFFER, vertex_format_types, vertex_format_size_surface, 1, 0);
-	if(r_sprite_pool != NULL)
-		free(r_sprite_pool);
 	r_sprite_pool = r_array_allocate(SUI_DRAW_SPRITE_BUFFER, vertex_format_types, vertex_format_size, 3, 0);
 
 	r_primitive_image_aa_set(&array[8 * 0], 0, 0, 1, 0, 0);
@@ -268,45 +262,34 @@ void r_primitive_init()
 	r_array_load_vertex(r_image_pool, NULL, array, 0, 30);
 
 	r_array_load_vertex(r_surface_pool, NULL, surface, 0, 6);
-	if(r_color_shader != NULL)
-		free(r_color_shader);
+
 	r_color_shader = r_shader_create_simple(NULL, 0, r_shader_color_vertex, r_shader_color_fragment, "color primitive");
 	r_color_location_color = r_shader_uniform_location(r_color_shader, "color");
-	if(r_vertex_color_shader != NULL)
-		free(r_vertex_color_shader);
+
 	r_vertex_color_shader = r_shader_create_simple(NULL, 0, r_shader_vertex_color_vertex, r_shader_vertex_color_fragment, "vertex color primitive");
-	r_shader_state_set_blend_mode(r_vertex_color_shader, GL_ONE, GL_ONE_MINUS_SRC_ALPHA);	
-	if(r_surface_shader != NULL)
-		free(r_surface_shader);	
+	
 	r_surface_shader = r_shader_create_simple(buffer, 2048, r_shader_surface_vertex, r_shader_surface_fragment, "color primitive");
 	r_surface_location_color = r_shader_uniform_location(r_surface_shader, "color");
 	r_surface_location_pos = r_shader_uniform_location(r_surface_shader, "pos");
 	r_surface_location_size = r_shader_uniform_location(r_surface_shader, "size");
 	r_surface_location_pixel = r_shader_uniform_location(r_surface_shader, "pixel");
-	if(r_image_shader != NULL)
-		free(r_image_shader);	
+	
 	r_image_shader = r_shader_create_simple(NULL, 0, r_shader_image_vertex, r_shader_image_fragment, "image primitive");
-	r_shader_state_set_blend_mode(r_image_shader, GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
-//	r_shader_state_set_blend_mode(r_image_shader, GL_ONE, GL_ONE);
-	r_shader_state_set_depth_test(r_image_shader, GL_ALWAYS);
 	r_image_location_uv = r_shader_uniform_location(r_image_shader, "uv");
 	r_image_location_color = r_shader_uniform_location(r_image_shader, "color");
 	r_image_location_pos = r_shader_uniform_location(r_image_shader, "pos");
 	r_image_location_size = r_shader_uniform_location(r_image_shader, "size");
 	r_image_location_pixel = r_shader_uniform_location(r_image_shader, "pixel");
-	if(r_texture_shader != NULL)
-		free(r_texture_shader);	
 	r_texture_shader = r_shader_create_simple(NULL, 0, r_shader_texture_vertex, r_shader_texture_fragment, "texture");
-	if(r_sprite_shader != NULL)
-		free(r_sprite_shader);	
 	r_sprite_shader = r_shader_create_simple(NULL, 0, r_shader_sprite_vertex, r_shader_sprite_fragment, "sprite primitive");
+
 }
 
-uint special_drawcall_active = FALSE;
 
 void r_primitive_image(float pos_x, float pos_y, float pos_z, float size_x, float size_y, float u_start, float v_start, float u_end, float v_end, uint texture_id, float red, float green, float blue, float alpha)
 {
 	RMatrix *m;
+	uint tex2;
 	r_shader_set(r_image_shader);
 	r_shader_vec4_set(NULL, r_image_location_uv, u_start, v_start, u_end - u_start, v_end - v_start);
 	r_shader_vec4_set(NULL, r_image_location_color, red, green, blue, alpha);
@@ -315,25 +298,10 @@ void r_primitive_image(float pos_x, float pos_y, float pos_z, float size_x, floa
 	r_matrix_translate(m, pos_x, pos_y, pos_z);
 	r_matrix_scale(m, size_x, size_y, 0);
 	r_shader_uniform_texture_set(r_image_shader, r_shader_uniform_location(r_image_shader, "image"), r_shader_uniform_texture_pointer_get(texture_id));
-	special_drawcall_active = TRUE;
 	r_array_section_draw(r_surface_pool, NULL, GL_TRIANGLES, 0, 30);
-	special_drawcall_active = FALSE;
 	r_matrix_pop(m);
 }
 
-void r_primitive_image_shader(float pos_x, float pos_y, float pos_z, float size_x, float size_y, RShader *shader)
-{
-	RMatrix *m;
-	r_shader_set(shader);
-	m = r_matrix_get();
-	r_matrix_push(m);
-	r_matrix_translate(m, pos_x, pos_y, pos_z);
-	r_matrix_scale(m, size_x, size_y, 0);
-	special_drawcall_active = TRUE;
-	r_array_section_draw(r_surface_pool, NULL, GL_TRIANGLES, 0, 30);
-	special_drawcall_active = FALSE;
-	r_matrix_pop(m);
-}
 
 void r_primitive_surface(float pos_x, float pos_y, float pos_z, float size_x, float size_y, float red, float green, float blue, float alpha)
 {
@@ -344,7 +312,7 @@ void r_primitive_surface(float pos_x, float pos_y, float pos_z, float size_x, fl
 	r_matrix_push(m);
 	r_matrix_translate(m, pos_x, pos_y, pos_z);
 	r_matrix_scale(m, size_x, size_y, 0);
-	r_array_section_draw(r_surface_pool, NULL, GL_TRIANGLES, 0, 30);
+	r_array_section_draw(r_surface_pool, NULL, GL_TRIANGLES, 0, 6);
 	r_matrix_pop(m);
 
 }
@@ -359,13 +327,14 @@ void r_primitive_surface2(float pos_x, float pos_y, float pos_z, float size_x, f
 	r_matrix_push(m);
 	r_matrix_translate(m, pos_x, pos_y, 0);
 	r_matrix_scale(m, size_x, size_y, 1);
-	glBlendFunc(GL_ONE_MINUS_DST_COLOR, GL_ZERO);
+glBlendFunc(GL_ONE_MINUS_DST_COLOR, GL_ZERO);
 	r_array_section_draw(r_surface_pool, NULL, GL_TRIANGLES, 0, 6);
-	time += 0.01f;
-	glBlendFunc(GL_ONE, GL_ONE);
-	r_shader_vec4_set(NULL, r_color_location_color, 0.5f, 0.5f, 0.5f, 0.1f);
+	time += 0.01;
+//	r_matrix_translate(m, 0.1, 0.1, -0.0001 * sin(time));
+glBlendFunc(GL_ONE, GL_ONE);
+r_shader_vec4_set(NULL, r_color_location_color, 0.5, 0.5, 0.5, 0.1);
 	r_array_section_draw(r_surface_pool, NULL, GL_TRIANGLES, 0, 6);
-	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 	r_matrix_pop(m);
 
 }
@@ -469,12 +438,10 @@ void r_primitive_line_fade_2d(float start_x, float start_y, float end_x, float e
 }
 
 void r_primitive_sprite_flush()
-//FK: There's no GL_QUADS on OpenGL ES
-#ifndef BETRAY_CONTEXT_OPENGLES
+{
 	r_shader_set(r_sprite_shader);
 	r_array_section_draw(r_sprite_pool, r_sprite_section, GL_QUADS, 0, r_sprite_count);
 	r_sprite_count = 0;
-#endif
 }
 
 void r_primitive_sprite(float pos_x, float pos_y, float pos_z, uint texture_id, float size_x, float size_y, float red, float green, float blue, float alpha)

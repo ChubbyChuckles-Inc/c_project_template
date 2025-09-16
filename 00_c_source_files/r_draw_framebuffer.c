@@ -20,15 +20,7 @@ void (APIENTRY *r_glFramebufferTexture2DEXT)(GLenum target, GLenum attachment, G
 void (APIENTRY *r_glFramebufferRenderbufferEXT)(GLenum target, GLenum attachment, GLenum renderbuffertarget, GLuint renderbuffer) = NULL;
 void (APIENTRY *r_glDrawBuffersARB)(GLuint, GLenum *buffers) = NULL;
 
-void (APIENTRY *r_glTexImage3D)(GLenum target, int level, GLenum internalformat, uint width, uint height, uint depth, int border, GLenum format, GLenum type, const void* pixels) = NULL;
-
-uint r_framebuffer_debug_fbo_allocated = 0;
-uint r_framebuffer_debug_image_allocated = 0;
-
-typedef struct{
-	uint fbo_id;
-	uint layer_count;
-}RFrameBufferObject;
+void (APIENTRY *r_glTexImage3D)(enum target, int level, enum internalformat, uint width, uint height, uint depth, int border, enum format, enum type, const void* pixels) = NULL;
 
 
 #define       GL_R8                      0x8229
@@ -70,7 +62,7 @@ boolean r_framebuffer_status(void)
         case GL_FRAMEBUFFER_INCOMPLETE_MISSING_ATTACHMENT_EXT:
             fprintf(stderr, "Framebuffer incomplete, missing attachment\n");
             break;
-/*		case GL_FRAMEBUFFER_INCOMPLETE_DUPLICATE_ATTACHMENT_EXT:
+	/*	case GL_FRAMEBUFFER_INCOMPLETE_DUPLICATE_ATTACHMENT_EXT:
             printf("Framebuffer incomplete, duplicate attachment\n");
             break;*/
         case GL_FRAMEBUFFER_INCOMPLETE_DIMENSIONS_EXT:
@@ -92,132 +84,71 @@ boolean r_framebuffer_status(void)
 	return FALSE;
 }
 
-
-#define GL_TEXTURE_CUBE_MAP_POSITIVE_X_EXT  0x8515 
-#define GL_TEXTURE_CUBE_MAP_NEGATIVE_X_EXT  0x8516 
-#define GL_TEXTURE_CUBE_MAP_POSITIVE_Y_EXT  0x8517 
-#define GL_TEXTURE_CUBE_MAP_NEGATIVE_Y_EXT  0x8518 
-#define GL_TEXTURE_CUBE_MAP_POSITIVE_Z_EXT  0x8519 
-#define GL_TEXTURE_CUBE_MAP_NEGATIVE_Z_EXT  0x851A 
-
-void *r_framebuffer_allocate(uint *buffers, uint buffer_count, uint depth_buffer, uint target)
+uint r_framebuffer_allocate(uint *buffers, uint buffer_count, uint depth_buffer)
 {
-	RFrameBufferObject *obj;
-	uint i, fbo = 0;
+	uint i, fbo;
 	r_glGenFramebuffersEXT(1, &fbo);
-	r_glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, fbo);
-	if(target >= 6)
-		target = GL_TEXTURE_2D;
-	else
-		target = GL_TEXTURE_CUBE_MAP_POSITIVE_X_EXT + target;
+	r_glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, fbo); 
 	for(i = 0; i < buffer_count; i++)
-		r_glFramebufferTexture2DEXT(GL_FRAMEBUFFER_EXT, GL_COLOR_ATTACHMENT0_EXT + i, target, buffers[i], 0);
+		r_glFramebufferTexture2DEXT(GL_FRAMEBUFFER_EXT, GL_COLOR_ATTACHMENT0_EXT + i, GL_TEXTURE_2D, buffers[i], 0);
 	if(depth_buffer != -1)
 		r_glFramebufferRenderbufferEXT(GL_FRAMEBUFFER_EXT, GL_DEPTH_ATTACHMENT_EXT, GL_RENDERBUFFER_EXT, depth_buffer);
 	if(!r_framebuffer_status())
 	{			
 		r_glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, 0);
-		return NULL;
+		return -1;
 	}
 	r_glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, 0);
-	obj = malloc(sizeof *obj);
-	obj->fbo_id = fbo;
-	obj->layer_count  = buffer_count; 
-	r_framebuffer_debug_fbo_allocated++;
-	return obj;
+	return fbo;
 }
 
-void r_framebuffer_bind(void *fbo)
+void r_framebuffer_bind(uint id)
 {
-	if(fbo == NULL)
-	{
-		r_glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, 0);	
-#ifndef BETRAY_CONTEXT_OPENGLES
-        glDrawBuffer(GL_BACK);
-#endif
-	}else
-	{
-		GLenum attachements[8] = {GL_COLOR_ATTACHMENT0_EXT, GL_COLOR_ATTACHMENT0_EXT + 1, GL_COLOR_ATTACHMENT0_EXT + 2, GL_COLOR_ATTACHMENT0_EXT + 3, GL_COLOR_ATTACHMENT0_EXT + 4, GL_COLOR_ATTACHMENT0_EXT + 5, GL_COLOR_ATTACHMENT0_EXT + 6, GL_COLOR_ATTACHMENT0_EXT + 7};
-		r_glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, ((RFrameBufferObject *)fbo)->fbo_id);
-        if(r_glDrawBuffersARB != NULL)
-            r_glDrawBuffersARB(((RFrameBufferObject *)fbo)->layer_count, attachements);
-	}
+/*	GLenum attachements[8] = {GL_COLOR_ATTACHMENT0_EXT, GL_COLOR_ATTACHMENT0_EXT + 1, GL_COLOR_ATTACHMENT0_EXT + 2, GL_COLOR_ATTACHMENT0_EXT + 3, GL_COLOR_ATTACHMENT0_EXT + 4, GL_COLOR_ATTACHMENT0_EXT + 5, GL_COLOR_ATTACHMENT0_EXT + 6, GL_COLOR_ATTACHMENT0_EXT + 7};
+	p_glDrawBuffersARB(8, attachements);
+*/	r_glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, id);	
 }
 
-uint r_framebuffer_id(void *fbo)
+void r_framebuffer_free(uint fbo)
 {
-	return ((RFrameBufferObject *)fbo)->fbo_id;
-}
-
-void r_framebuffer_free(void *fbo)
-{
-	r_glDeleteFramebuffersEXT(1, &((RFrameBufferObject *)fbo)->fbo_id);
-	r_framebuffer_debug_fbo_allocated--;
-	free(fbo);
+	r_glDeleteFramebuffersEXT(1, &fbo);
 }
 
 void r_framebuffer_clear(float red, float green, float blue, float alpha, boolean color, boolean depth_stencil)
 {
 	uint32 bits = 0;
-/*  static uint rnd = 0;
-    glClearColor(f_randf(rnd++), green, blue,  alpha);
-*/  glClearColor(red, green, blue, alpha);
+	glClearColor(red, green, blue,  alpha);
 	if(color)
-	{
-		glDepthMask(1);
 		bits = GL_COLOR_BUFFER_BIT;
-	}
 	if(depth_stencil)
-	{
 		bits = bits | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT;
-		glColorMask(1, 1, 1, 1);
-	}
 	glClear(bits);
 }
 
 boolean r_framebuffer_init(void)
 {
-    r_glTexImage3D = r_extension_get_address("glTexImage3D");
+	if(r_extension_test("GL_EXT_texture3D"))
+		r_glTexImage3D = r_extension_get_address("glTexImage3D");
 
-    r_glDrawBuffersARB = r_extension_get_address("glDrawBuffersARB");
-    if( r_glDrawBuffersARB == NULL )
-    {
-        r_glDrawBuffersARB = r_extension_get_address("glDrawBuffers");
-    }
-    
-#ifndef BETRAY_CONTEXT_OPENGLES
-#ifndef __APPLE__
-    //FK: Macos OpenGL Extenion list is unreliable :-/
-    if(r_extension_test("GL_ARB_framebuffer_object"))
-#endif
-    {
-        r_glBindFramebufferEXT = r_extension_get_address("glBindFramebuffer");
-        r_glDeleteFramebuffersEXT = r_extension_get_address("glDeleteFramebuffers");
-        r_glGenFramebuffersEXT = r_extension_get_address("glGenFramebuffers");
-        r_glBindRenderbufferEXT = r_extension_get_address("glBindRenderbuffer");
-        r_glDeleteRenderbuffersEXT = r_extension_get_address("glDeleteRenderbuffers");
-        r_glGenRenderbuffersEXT = r_extension_get_address("glGenRenderbuffers");
-        r_glCheckFramebufferStatusEXT = r_extension_get_address("glCheckFramebufferStatus");
-        r_glRenderbufferStorageEXT = r_extension_get_address("glRenderbufferStorage");
-        r_glFramebufferTexture2DEXT = r_extension_get_address("glFramebufferTexture2D");
-        r_glFramebufferRenderbufferEXT = r_extension_get_address("glFramebufferRenderbuffer");
-        return TRUE;
-    }
-    return FALSE;
-#else
-    //FK: Part of OpenGL ES since ES 2.0 - No need to check for extension since there won't be an extension.
-    r_glBindFramebufferEXT = glBindFramebuffer;
-    r_glDeleteFramebuffersEXT = glDeleteFramebuffers;
-    r_glGenFramebuffersEXT = glGenFramebuffers;
-    r_glBindRenderbufferEXT = glBindRenderbuffer;
-    r_glDeleteRenderbuffersEXT = glDeleteRenderbuffers;
-    r_glGenRenderbuffersEXT = glGenRenderbuffers;
-    r_glCheckFramebufferStatusEXT = glCheckFramebufferStatus;
-    r_glRenderbufferStorageEXT = glRenderbufferStorage;
-    r_glFramebufferTexture2DEXT = glFramebufferTexture2D;
-    r_glFramebufferRenderbufferEXT = glFramebufferRenderbuffer;
-    return TRUE;
-#endif
+	if(r_extension_test("GL_ARB_draw_buffers"))
+		r_glDrawBuffersARB = r_extension_get_address("glDrawBuffersARB");
+
+	if(r_extension_test("GL_EXT_framebuffer_object"))
+	{
+		r_glBindFramebufferEXT = r_extension_get_address("glBindFramebufferEXT");
+		r_glDeleteFramebuffersEXT = r_extension_get_address("glDeleteFramebuffersEXT");
+		r_glGenFramebuffersEXT = r_extension_get_address("glGenFramebuffersEXT");
+		r_glBindRenderbufferEXT = r_extension_get_address("glBindRenderbufferEXT");
+		r_glDeleteRenderbuffersEXT = r_extension_get_address("glDeleteRenderbuffersEXT");
+		r_glGenRenderbuffersEXT = r_extension_get_address("glGenRenderbuffersEXT");
+		r_glCheckFramebufferStatusEXT = r_extension_get_address("glCheckFramebufferStatusEXT");
+		r_glRenderbufferStorageEXT = r_extension_get_address("glRenderbufferStorageEXT");
+		r_glFramebufferTexture2DEXT = r_extension_get_address("glFramebufferTexture2DEXT");
+		r_glFramebufferRenderbufferEXT = r_extension_get_address("glFramebufferRenderbufferEXT");
+		return TRUE;
+	}
+
+	return FALSE;
 }
 
 uint r_texture_allocate(PImageFormat format, uint x, uint y, uint z, boolean filter, boolean tile, void *data)
@@ -237,7 +168,7 @@ uint r_texture_allocate(PImageFormat format, uint x, uint y, uint z, boolean fil
 		printf("RELINQUISH Error: Graphics driver does not support 3D textures\n");
 		return -1;
 	}
-	r_framebuffer_debug_image_allocated++;
+
 	if(format >= R_IF_DEPTH16)
 	{
 		r_glGenRenderbuffersEXT(1, &texture_id);		
@@ -324,10 +255,6 @@ uint r_texture_allocate(PImageFormat format, uint x, uint y, uint z, boolean fil
 				input_format = GL_RGBA;
 				data_type = GL_FLOAT;
 			break;
-			default :
-				printf("Reliquish Error: Calling r_texture_allocate with ilegal format : %u\n", format);
-				exit(0);
-			break;
 		}
 		stride = 3 + format % 2;
 		free_data = data == NULL;
@@ -347,9 +274,9 @@ uint r_texture_allocate(PImageFormat format, uint x, uint y, uint z, boolean fil
 
 					if(((i % x) / 16 + (i / x) / 16) % 2 == 0)
 					{
-						buf[i * stride + 0] = 1.0f - buf[i * stride + 0];
-						buf[i * stride + 1] = 1.0f - buf[i * stride + 1];
-						buf[i * stride + 2] = 1.0f - buf[i * stride + 2];
+						buf[i * stride + 0] = 1.0 - buf[i * stride + 0];
+						buf[i * stride + 1] = 1.0 - buf[i * stride + 1];
+						buf[i * stride + 2] = 1.0 - buf[i * stride + 2];
 					}
 					if(stride == 4)
 						buf[i * stride + 3] = (float)(((i % x) / 16 + (i / x) / 16) % 2);
@@ -366,9 +293,9 @@ uint r_texture_allocate(PImageFormat format, uint x, uint y, uint z, boolean fil
 
 					if(((i % x) / 8 + ((i / x) % y) / 8 + (i / (x * y)) / 8) % 2 == 0)
 					{
-						buf[i * stride + 0] = 1.0f - buf[i * stride + 0];
-						buf[i * stride + 1] = 1.0f - buf[i * stride + 1];
-						buf[i * stride + 2] = 1.0f - buf[i * stride + 2];
+						buf[i * stride + 0] = 1.0 - buf[i * stride + 0];
+						buf[i * stride + 1] = 1.0 - buf[i * stride + 1];
+						buf[i * stride + 2] = 1.0 - buf[i * stride + 2];
 					}
 					if(stride == 4)
 						buf[i * stride + 3] = (float)(((i % x) / 8 + ((i / x) % y) / 8 + (i / (x * y)) / 8) % 2);
@@ -385,9 +312,9 @@ uint r_texture_allocate(PImageFormat format, uint x, uint y, uint z, boolean fil
 
 					if(((i % x) / 16 + ((i / x) % (x * y)) / 16) % 2 == 0)
 					{
-						buf[i * stride + 0] = 1.0f - buf[i * stride + 0];
-						buf[i * stride + 1] = 1.0f - buf[i * stride + 1];
-						buf[i * stride + 2] = 1.0f - buf[i * stride + 2];
+						buf[i * stride + 0] = 1.0 - buf[i * stride + 0];
+						buf[i * stride + 1] = 1.0 - buf[i * stride + 1];
+						buf[i * stride + 2] = 1.0 - buf[i * stride + 2];
 					}
 					if(stride == 4)
 						buf[i * stride + 3] = (float)(((i % x) / 16 + ((i / x) % (x * y)) / 16) % 2);
@@ -457,89 +384,24 @@ uint r_texture_allocate(PImageFormat format, uint x, uint y, uint z, boolean fil
 		else
 			type = GL_CLAMP;
 		
-		glTexParameteri(dimensions, GL_TEXTURE_WRAP_S, type);
-		glTexParameteri(dimensions, GL_TEXTURE_WRAP_T, type);
+		glTexParameterf(dimensions, GL_TEXTURE_WRAP_S, type);
+		glTexParameterf(dimensions, GL_TEXTURE_WRAP_T, type);
 		if(dimensions == GL_TEXTURE_3D)
-			glTexParameteri(dimensions, GL_TEXTURE_WRAP_R, type);
+			glTexParameterf(dimensions, GL_TEXTURE_WRAP_R, type);
 
 		if(filter)
 			type = GL_LINEAR;
 		else
 			type = GL_NEAREST;
 
-		glTexParameteri(dimensions, GL_TEXTURE_MAG_FILTER, type);
-		glTexParameteri(dimensions, GL_TEXTURE_MIN_FILTER, type);
+		glTexParameterf(dimensions, GL_TEXTURE_MAG_FILTER, type);
+		glTexParameterf(dimensions, GL_TEXTURE_MIN_FILTER, type);
 	}
 	return texture_id;
 }
 
-void r_texture_update(uint texture_id, PImageFormat format, uint x_offset, uint y_offset, uint z_offset, uint x_size, uint y_size, uint z_size, void *data)
-{	
-	uint input_format, data_type;
-	glBindTexture(GL_TEXTURE_2D, texture_id);
-
-	switch(format)
-	{
-		case R_IF_R_UINT8 :
-			input_format = GL_RED;
-			data_type = GL_UNSIGNED_BYTE;
-		break;
-		case R_IF_RG_UINT8 :
-			input_format = GL_RG;
-			data_type = GL_UNSIGNED_BYTE;
-		break;
-		case R_IF_RGB_UINT8 :
-			input_format = GL_RGB;
-			data_type = GL_UNSIGNED_BYTE;
-		break;
-		case R_IF_RGBA_UINT8 :
-			input_format = GL_RGBA;
-			data_type = GL_UNSIGNED_BYTE;
-		break;
-		case R_IF_R_FLOAT16 :
-			input_format = GL_RED;
-			data_type = GL_FLOAT;
-		break;
-		case R_IF_RG_FLOAT16 :
-			input_format = GL_RG;
-			data_type = GL_FLOAT;
-		break;
-		case R_IF_RGB_FLOAT16 :
-			input_format = GL_RGB;
-			data_type = GL_FLOAT;
-		break;
-		case R_IF_RGBA_FLOAT16 :
-			input_format = GL_RGBA;
-			data_type = GL_FLOAT;
-		break;
-		case R_IF_R_FLOAT32 :
-			input_format = GL_RED;
-			data_type = GL_FLOAT;
-		break;
-		case R_IF_RG_FLOAT32 :
-			input_format = GL_RG;
-			data_type = GL_FLOAT;
-		break;
-		case R_IF_RGB_FLOAT32 :
-			input_format = GL_RGB;
-			data_type = GL_FLOAT;
-		break;
-		case R_IF_RGBA_FLOAT32 :
-			input_format = GL_RGBA;
-			data_type = GL_FLOAT;
-		break;
-		default :
-			printf("Reliquish Error: Calling r_texture_update with ilegal format : %u\n", format);
-			exit(0);
-		break;
-	}
-	glTexSubImage2D(GL_TEXTURE_2D, 0, x_offset, y_offset, x_size, y_size, input_format, data_type, data);
-}
-
-
 void r_texture_free(uint texture_id)
-{	
-	r_framebuffer_debug_image_allocated--;
+{
 	glDeleteTextures(1, &texture_id);
 }
 

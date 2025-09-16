@@ -178,7 +178,7 @@ void (APIENTRY *r_glUniformMatrix3x4fv)(GLint location, GLsizei count, GLboolean
 void (APIENTRY *r_glUniformMatrix4x3fv)(GLint location, GLsizei count, GLboolean transpose, const GLfloat *value);
 
 
-extern GLvoid (APIENTRY *r_glActiveTextureARB)(GLenum texture);
+GLvoid (APIENTRY *r_glActiveTextureARB)(GLenum texture);
 uint64 (APIENTRY *r_glGetTextureHandleARB)(uint texture);
 uint64 (APIENTRY *r_glGetTextureSamplerHandleARB)(uint texture, uint sampler);
 void (APIENTRY *r_glMakeTextureHandleResidentARB)(uint64 handle);
@@ -189,13 +189,10 @@ extern void	(APIENTRY *r_glBindBufferBase)(GLenum target, GLuint index, GLuint b
 
 void (APIENTRY *r_glUniformBlockBinding)(GLuint program, GLuint uniformBlockIndex, GLuint uniformBlockBinding);
 void (APIENTRY *r_glGetActiveUniformBlockiv)(GLuint program, GLuint uniformBlockIndex, GLenum pname, GLint *params);
-extern uint r_shader_glsl_version;
-extern uint64	r_shader_uniform_texture_pointer_get(uint texture_id);
-
 
 void r_uniform_init()
 {
-	if(r_shader_glsl_version > 110 || r_extension_test("GL_ARB_shading_language_100"))
+	if(r_extension_test("GL_ARB_shading_language_100"))
 	{
 		r_glUniform1fv =			r_extension_get_address("glUniform1fv");
 		r_glUniform2fv =			r_extension_get_address("glUniform2fv");
@@ -220,7 +217,7 @@ void r_uniform_init()
 		r_glUniformMatrix4x3fv =	r_extension_get_address("glUniformMatrix4x3fv");
 	}
 	r_glBindBufferBase = NULL;
-	if(r_extension_test("GL_ARB_uniform_buffer_object") && r_extension_test("GL_ARB_shader_draw_parameters"))
+	if(r_extension_test("GL_ARB_uniform_buffer_object"))
 	{
 		r_glBindBufferBase = r_extension_get_address("glBindBufferBase");
 		r_glUniformBlockBinding = r_extension_get_address("glUniformBlockBinding");
@@ -337,10 +334,10 @@ void r_shader_mat4v_set(RShader *shader, uint location, float *matrix)
 		return;
 	if(shader == NULL)
 		shader = r_current_shader;
-	shader->uniforms[location % R_UNIFORM_LOCATION_DIVIDER].updated = FALSE;
-	shader->blocks[shader->uniforms[location % R_UNIFORM_LOCATION_DIVIDER].block].updated = FALSE;
+	r_current_shader->uniforms[location % R_UNIFORM_LOCATION_DIVIDER].updated = FALSE;
+	r_current_shader->blocks[r_current_shader->uniforms[location % R_UNIFORM_LOCATION_DIVIDER].block].updated = FALSE;
 	location /= R_UNIFORM_LOCATION_DIVIDER;
-	memcpy(&shader->uniform_data[location], matrix, r_type_sizes[R_SIT_MAT4]);
+	memcpy(&r_current_shader->uniform_data[location], matrix, r_type_sizes[R_SIT_MAT4]);
 }
 
 void r_shader_mat3v_set(RShader *shader, uint location, float *matrix)
@@ -349,10 +346,10 @@ void r_shader_mat3v_set(RShader *shader, uint location, float *matrix)
 		return;
 	if(shader == NULL)
 		shader = r_current_shader;
-	shader->uniforms[location % R_UNIFORM_LOCATION_DIVIDER].updated = FALSE;
-	shader->blocks[shader->uniforms[location % R_UNIFORM_LOCATION_DIVIDER].block].updated = FALSE;
+	r_current_shader->uniforms[location % R_UNIFORM_LOCATION_DIVIDER].updated = FALSE;
+	r_current_shader->blocks[r_current_shader->uniforms[location % R_UNIFORM_LOCATION_DIVIDER].block].updated = FALSE;
 	location /= R_UNIFORM_LOCATION_DIVIDER;
-	memcpy(&shader->uniform_data[location], matrix, r_type_sizes[R_SIT_MAT3]);
+	memcpy(&r_current_shader->uniform_data[location], matrix, r_type_sizes[R_SIT_MAT3]);
 }
 
 void r_shader_mat2v_set(RShader *shader, uint location, float *matrix)
@@ -361,10 +358,10 @@ void r_shader_mat2v_set(RShader *shader, uint location, float *matrix)
 		return;
 	if(shader == NULL)
 		shader = r_current_shader;
-	shader->uniforms[location % R_UNIFORM_LOCATION_DIVIDER].updated = FALSE;
-	shader->blocks[shader->uniforms[location % R_UNIFORM_LOCATION_DIVIDER].block].updated = FALSE;
+	r_current_shader->uniforms[location % R_UNIFORM_LOCATION_DIVIDER].updated = FALSE;
+	r_current_shader->blocks[r_current_shader->uniforms[location % R_UNIFORM_LOCATION_DIVIDER].block].updated = FALSE;
 	location /= R_UNIFORM_LOCATION_DIVIDER;
-	memcpy(&shader->uniform_data[location], matrix, r_type_sizes[R_SIT_MAT2]);
+	memcpy(&r_current_shader->uniform_data[location], matrix, r_type_sizes[R_SIT_MAT2]);
 }
 
 void r_shader_vec4_set(RShader *shader, uint location, float v0, float v1, float v2, float v3)
@@ -374,10 +371,10 @@ void r_shader_vec4_set(RShader *shader, uint location, float v0, float v1, float
 		return;
 	if(shader == NULL)
 		shader = r_current_shader;
-	shader->uniforms[location % R_UNIFORM_LOCATION_DIVIDER].updated = FALSE;
-	shader->blocks[shader->uniforms[location % R_UNIFORM_LOCATION_DIVIDER].block].updated = FALSE;
+	r_current_shader->uniforms[location % R_UNIFORM_LOCATION_DIVIDER].updated = FALSE;
+	r_current_shader->blocks[r_current_shader->uniforms[location % R_UNIFORM_LOCATION_DIVIDER].block].updated = FALSE;
 	location /= R_UNIFORM_LOCATION_DIVIDER;
-	array = (float *)&shader->uniform_data[location];
+	array = &r_current_shader->uniform_data[location];
 	array[0] = v0;
 	array[1] = v1;
 	array[2] = v2;
@@ -391,10 +388,10 @@ void r_shader_vec3_set(RShader *shader, uint location, float v0, float v1, float
 		return;
 	if(shader == NULL)
 		shader = r_current_shader;
-	shader->uniforms[location % R_UNIFORM_LOCATION_DIVIDER].updated = FALSE;
-	shader->blocks[shader->uniforms[location % R_UNIFORM_LOCATION_DIVIDER].block].updated = FALSE;
+	r_current_shader->uniforms[location % R_UNIFORM_LOCATION_DIVIDER].updated = FALSE;
+	r_current_shader->blocks[r_current_shader->uniforms[location % R_UNIFORM_LOCATION_DIVIDER].block].updated = FALSE;
 	location /= R_UNIFORM_LOCATION_DIVIDER;
-	array = (float *)&shader->uniform_data[location];
+	array = &r_current_shader->uniform_data[location];
 	array[0] = v0;
 	array[1] = v1;
 	array[2] = v2;
@@ -407,10 +404,10 @@ void r_shader_vec2_set(RShader *shader, uint location, float v0, float v1)
 		return;
 	if(shader == NULL)
 		shader = r_current_shader;
-	shader->uniforms[location % R_UNIFORM_LOCATION_DIVIDER].updated = FALSE;
-	shader->blocks[shader->uniforms[location % R_UNIFORM_LOCATION_DIVIDER].block].updated = FALSE;
+	r_current_shader->uniforms[location % R_UNIFORM_LOCATION_DIVIDER].updated = FALSE;
+	r_current_shader->blocks[r_current_shader->uniforms[location % R_UNIFORM_LOCATION_DIVIDER].block].updated = FALSE;
 	location /= R_UNIFORM_LOCATION_DIVIDER;
-	array = (float *)&shader->uniform_data[location];
+	array = &r_current_shader->uniform_data[location];
 	array[0] = v0;
 	array[1] = v1;
 }
@@ -423,10 +420,10 @@ void r_shader_float_set(RShader *shader, uint location, float f)
 	if(shader == NULL)
 		shader = r_current_shader;
 
-	shader->uniforms[location % R_UNIFORM_LOCATION_DIVIDER].updated = FALSE;
-	shader->blocks[shader->uniforms[location % R_UNIFORM_LOCATION_DIVIDER].block].updated = FALSE;
+	r_current_shader->uniforms[location % R_UNIFORM_LOCATION_DIVIDER].updated = FALSE;
+	r_current_shader->blocks[r_current_shader->uniforms[location % R_UNIFORM_LOCATION_DIVIDER].block].updated = FALSE;
 	location /= R_UNIFORM_LOCATION_DIVIDER;
-	array = (float *)&shader->uniform_data[location];
+	array = &r_current_shader->uniform_data[location];
 	array[0] = f;
 }
 
@@ -436,7 +433,7 @@ void r_shader_uniform_texture_set(RShader *shader, uint location, uint64 texture
 	shader->uniforms[location % R_UNIFORM_LOCATION_DIVIDER].updated = FALSE;
 	shader->blocks[shader->uniforms[location % R_UNIFORM_LOCATION_DIVIDER].block].updated = FALSE;
 	location /= R_UNIFORM_LOCATION_DIVIDER;
-	array = (uint64 *)&shader->uniform_data[location];
+	array = &shader->uniform_data[location];
 	array[0] = texture_id;
 }
 
@@ -466,6 +463,7 @@ void r_shader_int4_set(uint location, int i0, int i1, int i2, int i3)
 
 void r_shader_uniform_matrix_set(RShader *shader, uint8 *data, uint block_id, RMatrix *matrix)
 { 
+	uint i;
 	if(shader == NULL)
 		shader = r_current_shader;
 	if(matrix == NULL)
@@ -479,21 +477,21 @@ void r_shader_uniform_matrix_set(RShader *shader, uint8 *data, uint block_id, RM
 		m[0] = m2[0] / f;
 		m[1] = m2[1] / f;
 		m[2] = m2[2] / f;
-		m[3] = 0.0f;
+		m[3] = 0.0;
 		f = sqrt(m2[4] * m2[4] + m2[5] * m2[5] + m2[6] * m2[6]);
 		m[4] = m2[4] / f;
 		m[5] = m2[5] / f;
 		m[6] = m2[6] / f;
-		m[7] = 0.0f;
+		m[7] = 0.0;
 		f = sqrt(m2[8] * m2[8] + m2[9] * m2[9] + m2[10] * m2[10]);
 		m[8] = m2[8] / f;
 		m[9] = m2[9] / f;
 		m[10] = m2[10] / f;
-		m[11] = 0.0f;
-		m[12] = 0.0f;
-		m[13] = 0.0f;
-		m[14] = 0.0f;
-		m[15] = 1.0f;
+		m[11] = 0.0;
+		m[12] = 0.0;
+		m[13] = 0.0;
+		m[14] = 0.0;
+		m[15] = 1.0;
 		shader->blocks[block_id].updated = FALSE;
 		shader->uniforms[shader->normal_matrix].updated = FALSE;
 		memcpy(&data[shader->uniforms[shader->normal_matrix].offset + shader->blocks[block_id].offset], m, r_type_sizes[R_SIT_MAT4]);
@@ -535,7 +533,8 @@ void r_shader_unifrom_data_set_block(RShader *s, uint8 *data, uint block)
 			s->uniforms[i].updated = TRUE;
 			switch(s->uniforms[i].type)
 			{
-				case R_SIT_BOOL : 	
+				case R_SIT_BOOL : 
+	
 				break;
 				case R_SIT_VBOOL2 : 
 				break;
@@ -560,16 +559,20 @@ void r_shader_unifrom_data_set_block(RShader *s, uint8 *data, uint block)
 				case R_SIT_VUINT4 : 
 				break;
 				case R_SIT_FLOAT : 
-					r_glUniform1fv(s->uniforms[i].id, s->uniforms[i].array_length, (float *)&data[s->uniforms[i].offset]);
+					r_glUniform1fv(s->uniforms[i].id, s->uniforms[i].array_length, &data[s->uniforms[i].offset]);
 				break;
 				case R_SIT_VEC2 : 
-					r_glUniform2fv(s->uniforms[i].id, s->uniforms[i].array_length, (float *)&data[s->uniforms[i].offset]);
+					r_glUniform2fv(s->uniforms[i].id, s->uniforms[i].array_length, &data[s->uniforms[i].offset]);
 				break;
 				case R_SIT_VEC3 : 
-					r_glUniform3fv(s->uniforms[i].id, s->uniforms[i].array_length, (float *)&data[s->uniforms[i].offset]);
+					r_glUniform3fv(s->uniforms[i].id, s->uniforms[i].array_length, &data[s->uniforms[i].offset]);
 				break;
 				case R_SIT_VEC4 : 
-					r_glUniform4fv(s->uniforms[i].id, s->uniforms[i].array_length, (float *)&data[s->uniforms[i].offset]);
+				{
+					float *p;
+					p = &data[s->uniforms[i].offset];
+					r_glUniform4fv(s->uniforms[i].id, s->uniforms[i].array_length, &data[s->uniforms[i].offset]);
+				}
 				break;
 				case R_SIT_DOUBLE : 
 				break;
@@ -580,7 +583,7 @@ void r_shader_unifrom_data_set_block(RShader *s, uint8 *data, uint block)
 				case R_SIT_VDOUBLE4 : 
 				break;
 				case R_SIT_MAT2 : 
-					r_glUniformMatrix2fv(s->uniforms[i].id, s->uniforms[i].array_length, FALSE, (float *)&data[s->uniforms[i].offset]);
+					r_glUniformMatrix2fv(s->uniforms[i].id, s->uniforms[i].array_length, FALSE, &data[s->uniforms[i].offset]);
 				break;
 				case R_SIT_MAT2X3 : 
 				break;
@@ -589,7 +592,7 @@ void r_shader_unifrom_data_set_block(RShader *s, uint8 *data, uint block)
 				case R_SIT_MAT3X2 : 
 				break;
 				case R_SIT_MAT3 : 
-					r_glUniformMatrix3fv(s->uniforms[i].id, s->uniforms[i].array_length, FALSE, (float *)&data[s->uniforms[i].offset]);
+					r_glUniformMatrix3fv(s->uniforms[i].id, s->uniforms[i].array_length, FALSE, &data[s->uniforms[i].offset]);
 				break;
 				case R_SIT_MAT3X4 : 
 				break;
@@ -598,7 +601,7 @@ void r_shader_unifrom_data_set_block(RShader *s, uint8 *data, uint block)
 				case R_SIT_MAT4X3 : 
 				break;
 				case R_SIT_MAT4 : 
-					r_glUniformMatrix4fv(s->uniforms[i].id, s->uniforms[i].array_length, FALSE, (float *)&data[s->uniforms[i].offset]);
+					r_glUniformMatrix4fv(s->uniforms[i].id, s->uniforms[i].array_length, FALSE, &data[s->uniforms[i].offset]);
 				break;
 				case R_SIT_DMAT2 : 
 				break;
@@ -723,5 +726,5 @@ void r_shader_texture_set(RShader *s, uint slot, uint texture_id)
 			count++;
 		}
 	}
-	printf("RELINQUISH Error: r_shader_active_texture trying to set slot %u but %s only has %u slots.\n", slot, s->name, s->uniform_count);
+	printf("RELINQUISH Error: r_shader_active_texture trying to set slot %u but %s doesnt have %u slots.\n", slot, s->name);
 }

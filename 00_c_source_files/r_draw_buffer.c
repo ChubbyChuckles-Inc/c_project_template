@@ -1,16 +1,12 @@
 #include <math.h>
 #include <stdlib.h>
 #include <stdio.h>
-#include <string.h>
 #include "forge.h"
 #include "r_include.h"
 
 
-#ifdef __APPLE__
-boolean r_buffer_extension = TRUE;
-#else
+
 boolean r_buffer_extension = FALSE;
-#endif
 
 GLvoid		(APIENTRY *r_glBindBufferARB)(uint target, uint buffer);
 GLvoid		(APIENTRY *r_glDeleteBuffersARB)(uint n, const uint *buffers);
@@ -36,11 +32,12 @@ GLvoid		(APIENTRY *r_glBindVertexArray)(uint array);
 GLvoid		(APIENTRY *r_glDeleteVertexArrays)(GLsizei n, const uint *arrays);
 GLvoid		(APIENTRY *r_glGenVertexArrays)(GLsizei n, uint *arrays);
 
+GLuint		(APIENTRY *r_glGetUniformBlockIndex)(GLuint program, const char *uniformBlockName);
+void		(APIENTRY *r_glBindBufferBase)(GLenum target, GLuint index, GLuint buffer);
+
 void		(APIENTRY *r_glBeginTransformFeedback)(GLenum primitiveMode);
 void		(APIENTRY *r_glEndTransformFeedback)(void);
 
-extern GLuint	(APIENTRY *r_glGetUniformBlockIndex)(GLuint program, const char *uniformBlockName);
-extern void		(APIENTRY *r_glBindBufferBase)(GLenum target, GLuint index, GLuint buffer);
 
 typedef struct{
 	uint count;
@@ -67,52 +64,44 @@ boolean r_array_attrib_mode[64] = {FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, FAL
 									FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE,
 									FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE,
 									FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE, FALSE};
-uint r_array_debug_allocated = 0;
 uint r_array_bound = 0;
 
-typedef enum{
-	R_AD_VERTEX,
-	R_AD_REFERENCE,
-	R_AD_COUNT
-}RArrayDivision;
-
 typedef struct{
-	uint start;
-	uint count;
+	uint vertex_start;
+	uint vertex_count;
+	uint reference_count;
 	void *prev;
 	void *next;
 	void *referencing;
-}RArraySection;
+}SUIArraySection;
 
 typedef struct{
 	uint gl_buffer;
 	uint gl_array;
 	uint8 *data;
-	struct{
-		RArraySection *sections_start;
-		RArraySection *sections_end;
-		uint array_length;
-		uint array_used;
-		boolean defragged;
-	}divide[R_AD_COUNT];
+	SUIArraySection *sections_start;
+	SUIArraySection *sections_end;
+	uint array_length;
+	uint array_used;
 	uint vertex_size;
-	RFormats vertex_format_types[64];
+	SUIFormats vertex_format_types[64];
 	uint vertex_format_size[64];
 	uint vertex_format_count;
-}RArrayPool;
+	boolean defragged;
+}SUIArrayPool;
 
-RArrayPool *r_array_pool_bound = NULL;
+SUIArrayPool *r_array_pool_bound = NULL;
 
-uint r_array_vertex_size(RFormats *vertex_format_types, uint *vertex_format_size, uint vertex_format_count)
+uint r_array_vertex_size(SUIFormats *vertex_format_types, uint *vertex_format_size, uint vertex_format_count)
 {
 	uint type_sizes[] = {sizeof(int8), sizeof(uint8), sizeof(int16), sizeof(uint16), sizeof(int32), sizeof(uint32), sizeof(float), sizeof(double)}, i, size = 0;
 	for(i = 0; i < vertex_format_count; i++)
 	{
-	/*	printf("vertex_format_types[%u] = %u\n", i, type_sizes[vertex_format_types[i]]);
+/*		printf("vertex_format_types[%u] = %u\n", i, type_sizes[vertex_format_types[i]]);
 		printf("vertex_format_size[%u] = %u\n", i, vertex_format_size[i]);
 		printf("size %u\n", (type_sizes[vertex_format_types[i]] * vertex_format_size[i] + 3));
-		printf("div %u\n", (type_sizes[vertex_format_types[i]] * vertex_format_size[i] + 3) / 4);*/
-		size +=	(type_sizes[vertex_format_types[i]] * vertex_format_size[i] + 3) / 4; 
+		printf("div %u\n", (type_sizes[vertex_format_types[i]] * vertex_format_size[i] + 3) / 4);
+*/		size +=	(type_sizes[vertex_format_types[i]] * vertex_format_size[i] + 3) / 4; 
 	}
 	return size * 4;
 }
@@ -120,29 +109,23 @@ uint r_array_vertex_size(RFormats *vertex_format_types, uint *vertex_format_size
 
 void r_array_debug_print_out(void *pool)
 {
-	char *names[8] = {"INT8", "UINT8", "INT16", "UINT16", "INT32", "UINT32", "FLOAT", "DOUBLE"}, *divide[2] = {"Vertex", "Reference"};
-	RArrayPool *p;
-	RArraySection *s;
-	uint i, section;
+	char *names[8] = {"INT8", "UINT8", "INT16", "UINT16", "INT32", "UINT32", "FLOAT", "DOUBLE"};
+	SUIArrayPool *p;
+	SUIArraySection *s;
+	uint i;
 	p = pool;
 	printf("Reliquish POOL:\n");
 	printf("gl_buffer %u\n", p->gl_buffer);
-	printf("gl_array %u\n", p->gl_array);
 	printf("data %p\n", p->data);
-	for(i = 0; i < R_AD_COUNT; i++)
-	{
-		
-		printf("%s divide:\n", divide[i]);
-		printf("\tsections_start %p\n", p->divide[i].sections_start);
-		printf("\tsections_end %p\n", p->divide[i].sections_end);
-		printf("\tarray_length %u\n", p->divide[i].array_length);
-		printf("\tarray_used %u\n", p->divide[i].array_used);
-		if(p->divide[i].defragged)
-			printf("\tDefragged TRUE\n");
-		else
-			printf("\tDefragged FALSE\n");
-	}
+	printf("sections_start %p\n", p->sections_start);
+	printf("sections_end %p\n", p->sections_end);
+	printf("array_length %u\n", p->array_length);
+	printf("array_used %u\n", p->array_used);
 	printf("vertex_size %u\n", p->vertex_size);
+	if(p->defragged)
+		printf("Defragged TRUE\n");
+	else
+		printf("Defragged FALSE\n");
 	for(i = 0; i < p->vertex_format_count; i++)
 	{
 		if(p->vertex_format_types[i] < 8)
@@ -150,29 +133,25 @@ void r_array_debug_print_out(void *pool)
 		else
 			printf("Member[%u] Type: BROKEN Count %u\n", i, p->vertex_format_size[i]);
 	}
-	for(i = 0; i < R_AD_COUNT; i++)
+	i = 0;
+	for(s = p->sections_start; s != NULL; s = s->next)
 	{
-		section = 0;
-		printf("%s sections:\n", divide[i]);
-		for(s = p->divide[i].sections_start; s != NULL; s = s->next)
-		{
-			printf("\tSECTION[%u]: %p\n", section++, s);
-			printf("\tstart %u\n", s->start);
-			printf("\tcount %u\n", s->count);
-			printf("\tprev %p\n", s->prev);	
-			printf("\tnext %p\n", s->next);
-		}
+		printf("SECTION[%u]: %p\n", i++, s);
+		printf("vertex_start %u\n", s->vertex_start);
+		printf("vertex_count %u\n", s->vertex_count);
+		printf("prev %p\n", s->prev);	
+		printf("next %p\n", s->next);
 	}
 }
 
 
-void *r_array_allocate(uint vertex_count, RFormats *vertex_format_types, uint *vertex_format_size, uint vertex_format_count, uint reference_count)
+void *r_array_allocate(uint vertex_count, SUIFormats *vertex_format_types, uint *vertex_format_size, uint vertex_format_count, uint reference_count)
 {
 	uint type_sizes[] = {1, 1, 2, 2, 4, 4, 4, 8}, i, size = 0;
-	RArrayPool *p;
+	SUIArrayPool *p;
 	p = malloc(sizeof *p);
 	p->vertex_format_count = vertex_format_count;
-	for(i = 0; i < vertex_format_count && i < 64; i++)
+	for(i = 0; i < vertex_format_count; i++)
 	{
 		p->vertex_format_types[i] = vertex_format_types[i];
 		p->vertex_format_size[i] = vertex_format_size[i];
@@ -180,26 +159,20 @@ void *r_array_allocate(uint vertex_count, RFormats *vertex_format_types, uint *v
 	for(; i < 64; i++)
 		p->vertex_format_size[i] = 0;
 
-	p->vertex_size = size = r_array_vertex_size(vertex_format_types, vertex_format_size, vertex_format_count);
-
-	p->divide[R_AD_VERTEX].array_length = vertex_count;
-	p->divide[R_AD_REFERENCE].array_length = reference_count;
+	size = r_array_vertex_size(vertex_format_types, vertex_format_size, vertex_format_count);
+	p->vertex_size = size;
+	p->array_length = vertex_count + (reference_count * 4 + size - 1) / size;
 	p->gl_array = 0;
 	if(r_buffer_extension)
 	{
 		r_glGenBuffersARB(1, &p->gl_buffer);
 		r_glBindBufferARB(GL_ARRAY_BUFFER_ARB, p->gl_buffer);
-		r_glBufferDataARB(GL_ARRAY_BUFFER_ARB, p->divide[R_AD_VERTEX].array_length * size * 2 + p->divide[R_AD_REFERENCE].array_length * sizeof(uint), NULL, GL_DYNAMIC_DRAW_ARB);
+		r_glBufferDataARB(GL_ARRAY_BUFFER_ARB, p->array_length * size, NULL, GL_DYNAMIC_DRAW_ARB);
 		p->data = NULL;
 		if(r_glBindVertexArray != NULL)
 		{
-#ifndef BETRAY_CONTEXT_OPENGLES
-            static uint types[] = {GL_BYTE, GL_UNSIGNED_BYTE, GL_SHORT, GL_UNSIGNED_SHORT, GL_INT, GL_UNSIGNED_INT, GL_FLOAT, GL_DOUBLE};
-            uint type_sizes[] = {1, 1, 2, 2, 4, 4, 4, 8}, i, size = 0;
-#else
-            static uint types[] = {GL_BYTE, GL_UNSIGNED_BYTE, GL_SHORT, GL_UNSIGNED_SHORT, GL_INT, GL_UNSIGNED_INT, GL_FLOAT, GL_FLOAT};
-            uint type_sizes[] = {1, 1, 2, 2, 4, 4, 4, 4}, i, size = 0;
-#endif
+			static uint types[] = {GL_BYTE, GL_UNSIGNED_BYTE, GL_SHORT, GL_UNSIGNED_SHORT, GL_INT, GL_UNSIGNED_INT, GL_FLOAT, GL_DOUBLE};
+			uint type_sizes[] = {1, 1, 2, 2, 4, 4, 4, 8}, i, size = 0;
 			r_glGenVertexArrays(1, &p->gl_array);
 			r_glBindVertexArray(p->gl_array);
 			r_glBindBufferARB(GL_ARRAY_BUFFER_ARB, p->gl_buffer);
@@ -216,16 +189,12 @@ void *r_array_allocate(uint vertex_count, RFormats *vertex_format_types, uint *v
 	}else
 	{
 		p->gl_buffer = 0;
-		p->data = malloc(p->divide[R_AD_VERTEX].array_length * size + p->divide[R_AD_REFERENCE].array_length * sizeof(uint));
+		p->data = malloc(p->array_length * size);
 	}
-	for(i = 0; i < 2; i++)
-	{
-		p->divide[i].sections_start = NULL;
-		p->divide[i].sections_end = NULL;
-		p->divide[i].array_used = 0;
-		p->divide[i].defragged = TRUE;
-	}
-	r_array_debug_allocated++;
+	p->sections_start = NULL;
+	p->sections_end = NULL;
+	p->array_used = 0;
+	p->defragged = TRUE;
 	return p;
 }
 
@@ -233,13 +202,11 @@ void *r_array_allocate(uint vertex_count, RFormats *vertex_format_types, uint *v
 
 void r_array_free(void *pool)
 {
-	RArraySection *sections, *next;
-	RArrayPool *p;
-	uint i;
+	SUIArraySection *sections, *next;
+	SUIArrayPool *p;
 	if(pool == NULL)
 		return;
-	if(r_array_pool_bound == pool)
-		r_array_pool_bound = NULL;
+	
 	p = pool;
 
 	if(p->data != NULL)
@@ -248,22 +215,15 @@ void r_array_free(void *pool)
 	if(p->gl_buffer != 0)
 		r_glDeleteBuffersARB(1, &p->gl_buffer);
 
-	if(p->gl_array != 0)
-		r_glDeleteVertexArrays(1, &p->gl_array);
-
-	for(i = 0; i < 2; i++)
+	for(sections = p->sections_start; sections != NULL; sections = next)
 	{
-		for(sections = p->divide[i].sections_start; sections != NULL; sections = next)
-		{
-			next = sections->next;
-			free(sections);
-		}
+		next = sections->next;
+		free(sections);
 	}
-	r_array_debug_allocated--;
 	free(p);
 }
 
-void r_array_section_move(RArrayPool *pool, uint last_pos, uint new_pos, uint size)
+void r_array_section_move(SUIArrayPool *pool, uint last_pos, uint new_pos, uint size)
 {
 	uint *from, *to, i;
 	if(pool->data != NULL)
@@ -286,13 +246,13 @@ void r_array_section_move(RArrayPool *pool, uint last_pos, uint new_pos, uint si
 }
 
 
-void r_array_section_rebase(RArrayPool *pool, RArraySection *sections, uint move)
+void r_array_section_rebase(SUIArrayPool *pool, SUIArraySection *sections, uint move)
 {
 	uint *index, i, length;
-	length = sections->count;
+	length = sections->vertex_count * pool->vertex_size / sizeof(uint32);
 	if(pool->data != NULL)
 	{
-		index = (uint *)&pool->data[sections->start * sizeof(uint)];
+		index = (uint *)&pool->data[sections->vertex_start * pool->vertex_size];
 		for(i = 0; i < length; i++)
 			index[i] -= move;
 	}
@@ -300,243 +260,203 @@ void r_array_section_rebase(RArrayPool *pool, RArraySection *sections, uint move
 	{
 		index = malloc(length * sizeof(uint32));
 		r_glBindBufferARB(GL_ARRAY_BUFFER_ARB, pool->gl_buffer);
-		r_glGetBufferSubDataARB(GL_ARRAY_BUFFER_ARB, sections->start * sizeof(uint), length * sizeof(uint32), index);
+		r_glGetBufferSubDataARB(GL_ARRAY_BUFFER_ARB, sections->vertex_start * pool->vertex_size, length * sizeof(uint32), index);
 		for(i = 0; i < length; i++)
 			index[i] -= move;
-		r_glBufferSubDataARB(GL_ARRAY_BUFFER_ARB, sections->start * sizeof(uint), length * sizeof(uint32), index);
+		r_glBufferSubDataARB(GL_ARRAY_BUFFER_ARB, sections->vertex_start * pool->vertex_size, length * sizeof(uint32), index);
 		free(index);
 	}
 }
 
 boolean r_array_defrag(void *pool)
 {
-	RArrayPool *p;
-	RArraySection *sections, *next, *ref;
-	uint move, size[2], i;
+	SUIArrayPool *p;
+	SUIArraySection *sections, *next, *ref;
+	uint move;
 	p = pool;
-	if(p->divide[R_AD_VERTEX].defragged && p->divide[R_AD_REFERENCE].defragged)
+	if(p->defragged)
 		return FALSE;
 //	fprintf(stderr, "Working\n");
+
 	if(r_array_bound != p->gl_buffer && p->gl_buffer != 0)
 		r_glBindBufferARB(GL_ARRAY_BUFFER_ARB, p->gl_buffer);
-	size[R_AD_VERTEX] = p->vertex_size;
-	size[R_AD_REFERENCE] = sizeof(uint);
-	for(i = 0; i < R_AD_COUNT; i++)
-	{
 
-		for(sections = p->divide[i].sections_start; sections != NULL; sections = sections->next)
+	for(sections = p->sections_start; sections != NULL; sections = sections->next)
+	{
+		next = sections->next;
+		if(next == NULL)
+			break;
+		if(sections->vertex_start + sections->vertex_count != next->vertex_start)
 		{
-			next = sections->next;
-			if(next == NULL)
-				break;
-			if(sections->start + sections->count != next->start)
-			{
-				/* found a gap so we will move a block down to close the gap */
-				move = next->start - (sections->start + sections->count);
-				if(i == R_AD_VERTEX)
-					r_array_section_move(p, next->start * p->vertex_size, (sections->start + sections->count) * size[i], sections->count * p->vertex_size);
-				else
-					r_array_section_move(p, p->vertex_size * p->divide[R_AD_VERTEX].array_length + next->start * sizeof(uint32), p->vertex_size * p->divide[R_AD_VERTEX].array_length + (sections->start + sections->count) * size[i], sections->count * sizeof(uint32));
-				next->start = sections->start + sections->count;
-				if(sections->referencing != NULL && r_glDrawElementsBaseVertex == NULL)
-					for(ref = p->divide[R_AD_REFERENCE].sections_start; ref != NULL; ref = ref->next)
-						if(ref == sections->referencing)
-							r_array_section_rebase(pool, sections, move);
-				if(r_array_bound != p->gl_buffer && p->gl_buffer != 0)
-					r_glBindBufferARB(GL_ARRAY_BUFFER_ARB, r_array_bound);
-				return TRUE;
-			}
+			/* found a gap so we will move a block down to close the gap */
+			move = next->vertex_start - (sections->vertex_start + sections->vertex_count);
+			r_array_section_move(p, next->vertex_start * p->vertex_size, (sections->vertex_start + sections->vertex_count) * p->vertex_size, sections->vertex_count * p->vertex_size);
+			next->vertex_start = sections->vertex_start + sections->vertex_count;
+			if(sections->referencing != NULL && r_glDrawElementsBaseVertex == NULL)
+				for(ref = p->sections_start; ref != NULL; ref = ref->next)
+					if(ref == sections->referencing)
+						r_array_section_rebase(pool, sections, move);
+			if(r_array_bound != p->gl_buffer && p->gl_buffer != 0)
+				r_glBindBufferARB(GL_ARRAY_BUFFER_ARB, r_array_bound);
+			return TRUE;
 		}
-		p->divide[i].defragged = TRUE;
 	}
 	if(r_array_bound != p->gl_buffer && p->gl_buffer != 0)
 		r_glBindBufferARB(GL_ARRAY_BUFFER_ARB, r_array_bound);
+	p->defragged = TRUE;
 	return FALSE;
 }
 
-
-void *r_array_section_allocate(RArrayPool *p, RArrayDivision division, uint size)
+void *r_array_section_allocate_vertex(void *pool, uint size)
 {
-	RArraySection *section, *s;
-	uint pos, unit_size;
+	SUIArrayPool *p;
+	SUIArraySection *section, *s;
+	uint pos;
+	p = pool;
 
-	if(division == R_AD_VERTEX)
-		unit_size = p->vertex_size;
-	else
-		unit_size = sizeof(uint);
-	if(p->divide[division].array_used + size > p->divide[division].array_length) /* there is no space no matter */
+	if(p->array_used + size > p->array_length) /* there is no space no matter */
 	{
-		printf("there is no space no matter %u %u %u\n", p->divide[division].array_used, size, p->divide[division].array_length);
+		printf("there is no space no matter %u %u %u\n", p->array_used, size, p->array_length);
 		exit(0);
 		return NULL;
 	}
 	section = malloc(sizeof *section);
-	section->count = size;
+	section->vertex_count = size;
+	section->reference_count = 0;
 	section->referencing = NULL;
-	p->divide[division].array_used += size;
+	p->array_used += size;
 
-	if(p->divide[division].sections_start == NULL) // no section exists
+	if(p->sections_start == NULL) // no section exists
 	{
-		p->divide[division].sections_start = section;
-		p->divide[division].sections_end = section;
+		p->sections_start = section;
+		p->sections_end = section;
 		section->next = section->prev = NULL;
-		section->start = 0;
+		section->vertex_start = 0;
 		return section;
 	}else
 	{
-		s = p->divide[division].sections_end;
-		if(p->divide[division].array_length >= s->start + s->count + size) // add new section to end of array
+		s = p->sections_end;
+		if(p->array_length >= s->vertex_start + s->vertex_count + size) // add new section to end of array
 		{
 			s->next = section;
-			p->divide[division].sections_end = section;
+			p->sections_end = section;
 			section->next = NULL;
 			section->prev = s;
-			section->start = s->start + s->count;
+			section->vertex_start = s->vertex_start + s->vertex_count;
 			return section;
 		}
 		/* try to find a hole in the array of sections where the new section fits */
 		pos = 0;
-		for(s = p->divide[division].sections_start; s != NULL; s = s->next)
+		for(s = p->sections_start; s != NULL; s = s->next)
 		{
-			if(pos + size <= s->start) /* Found a hole */
+			if(pos + size <= s->vertex_start) /* Found a hole */
 			{
 				if(s->prev == NULL)
-					p->divide[division].sections_start = section;
+					p->sections_start = section;
 				else
-					((RArraySection *)s->prev)->next = section;
+					((SUIArraySection *)s->prev)->next = section;
 				section->prev = s->prev;
 				section->next = s;
 				s->prev = section;
-				section->start = pos;
+				section->vertex_start = pos;
 				return section;
 			}
-			pos = s->start + s->count;
+			pos = s->vertex_start + s->vertex_count;
 		}
 		/* lets do it again, but this time we start to defrag the segments to eventiualy find a gap big enough */
 		pos = 0;
 		if(r_array_bound != p->gl_buffer && p->gl_buffer != 0)
 			r_glBindBufferARB(GL_ARRAY_BUFFER_ARB, p->gl_buffer);
-		for(s = p->divide[division].sections_start; s != NULL; s = s->next)
+		for(s = p->sections_start; s != NULL; s = s->next)
 		{
-			if(pos + size <= s->start) /* Found a hole big enough */
+			if(pos + size <= s->vertex_start) /* Found a hole big enough */
 			{
 				if(s->prev == NULL)
-					p->divide[division].sections_start = section;
+					p->sections_start = section;
 				else
-					((RArraySection *)s->prev)->next = section;
+					((SUIArraySection *)s->prev)->next = section;
 				section->prev = s->prev;
 				section->next = s;
 				s->prev = section;
-				section->start = pos;
+				section->vertex_start = pos;
 				return section;
 			}
-			if(pos != s->start) /* move back a section to close the gap. */
+			if(pos != s->vertex_start) /* move back a section to close the gap. */
 			{
-				if(division == R_AD_VERTEX)
-					r_array_section_move(p, pos * p->vertex_size, s->start * p->vertex_size, s->count * p->vertex_size);
-				else
-					r_array_section_move(p, p->vertex_size * p->divide[R_AD_VERTEX].array_length + pos * sizeof(uint32), p->vertex_size * p->divide[R_AD_VERTEX].array_length + s->start * sizeof(uint32), s->count * sizeof(uint32));
-				s->start = pos;
+				r_array_section_move(p, pos * p->vertex_size, s->vertex_start * p->vertex_size, s->vertex_count * p->vertex_size);
+				s->vertex_start = pos;
 			}
-			pos = s->start + s->count;
+			pos = s->vertex_start + s->vertex_count;
 		}
 		if(r_array_bound != p->gl_buffer && p->gl_buffer != 0)
 			r_glBindBufferARB(GL_ARRAY_BUFFER_ARB, r_array_bound);
 		/* add to the end */
-		s = p->divide[division].sections_end;
+		s = p->sections_end;
 		s->next = section;
-		p->divide[division].sections_end = section;
+		p->sections_end = section;
 		section->next = NULL;
 		section->prev = s;
-		section->start = s->start  + s->count;
+		section->vertex_start = s->vertex_start + s->vertex_count;
 		return section;
 	}
 	return NULL;
 }
 
-
-
-void *r_array_section_allocate_vertex(void *pool, uint size)
-{
-	return r_array_section_allocate(pool, R_AD_VERTEX, size);
-}
-
 void *r_array_section_allocate_reference(void *pool, uint size)
 {
-	return r_array_section_allocate(pool, R_AD_REFERENCE, size);
+	SUIArraySection *section;
+	section = r_array_section_allocate_vertex(pool, (size * sizeof(uint32) + ((SUIArrayPool * )pool)->vertex_size - 1) / ((SUIArrayPool * )pool)->vertex_size);
+	section->reference_count = size;
+	return section;
 }
-
-/*
-typedef enum{
-	R_AD_VERTEX,
-	R_AD_REFERENCE,
-	R_AD_COUNT
-}RArrayDivision;
-*/
 
 void r_array_section_free(void *pool, void *section)
 {
-	RArrayPool *p;
-	RArraySection *s;
-	RArrayDivision divide = R_AD_VERTEX;
+	SUIArrayPool *p;
+	SUIArraySection *s;
+	uint pos;
 	p = pool;
-	for(s = p->divide[R_AD_REFERENCE].sections_start; s != NULL; s = s->next)
+	for(s = p->sections_start; s != NULL; s = s->next)
 	{
 		if(s->referencing == section)
 		{
 			r_array_section_free(pool, s);
 		}
-		if(s == section)
-			divide = R_AD_REFERENCE;
 	}
 	s = section;
-	p->divide[divide].array_used -= s->count;
+	p->array_used -= s->vertex_count;
 
 	if(s->next == NULL)
-		p->divide[divide].sections_end = s->prev;
+		p->sections_end = s->prev;
 	else
-		((RArraySection *)s->next)->prev = s->prev;
+		((SUIArraySection *)s->next)->prev = s->prev;
 
 	if(s->prev == NULL)
-		p->divide[divide].sections_start = s->next;
+		p->sections_start = s->next;
 	else
-		((RArraySection *)s->prev)->next = s->next;
+		((SUIArraySection *)s->prev)->next = s->next;
 	free(s);
 }
 
-void r_test()
-{
-	if(r_glDeleteBuffersARB == NULL)
-		exit(0);
-}
 
 void  r_array_init(void)
 {
 	uint i;
 #ifdef RELINQUISH_CONTEXT_OPENGLES
-    r_glBindBufferARB = glBindBuffer;
-    r_glDeleteBuffersARB = glDeleteBuffers;
-    r_glGenBuffersARB = glGenBuffers;
-    r_glBufferDataARB = glBufferData;
-    r_glBufferSubDataARB = glBufferSubData;
-    r_glGetBufferSubDataARB = r_extension_get_address("glGetBufferSubData");
-    r_glBindVertexArray = r_extension_get_address("glBindVertexArray");
-    r_glDeleteVertexArrays = r_extension_get_address("glDeleteVertexArrays");
-    r_glGenVertexArrays = r_extension_get_address("glGenVertexArrays");
-    r_glVertexAttribPointerARB = glVertexAttribPointer;
-    r_glEnableVertexAttribArrayARB = glEnableVertexAttribArray;
-    r_glDisableVertexAttribArrayARB = glDisableVertexAttribArray;
-    
-    r_buffer_extension = TRUE;
-#endif
+	r_glBindBufferARB = glBindBuffer;
+	r_glDeleteBuffersARB = glDeleteBuffers;
+	r_glGenBuffersARB = glGenBuffers;
+	r_glBufferDataARB = glBufferData;
+	r_glBufferSubDataARB = glBufferSubData;
+//	r_glGetBufferSubDataARB = glGetBufferSubData;
+
+	r_glVertexAttribPointerARB = glVertexAttribPointer;
+	r_glEnableVertexAttribArrayARB = glEnableVertexAttribArray;
+	r_glDisableVertexAttribArrayARB = glDisableVertexAttribArray;
+	r_buffer_extension = TRUE;
+#endif 
 #ifdef RELINQUISH_CONTEXT_OPENGL
-#ifdef __APPLE__
-    //FK: Macos OpenGL doesn't really list *all* extensions...
-    r_buffer_extension = TRUE;
-#else
-    r_buffer_extension = r_extension_test("GL_ARB_vertex_buffer_object") ;
-#endif
-	r_buffer_extension = r_extension_test("GL_ARB_vertex_buffer_object") ;
+	r_buffer_extension = r_extension_test("GL_ARB_vertex_buffer_object");
 	if(r_buffer_extension)
 	{
 		r_glBindBufferARB = r_extension_get_address("glBindBufferARB");
@@ -551,7 +471,6 @@ void  r_array_init(void)
 			r_glDeleteVertexArrays = r_extension_get_address("glDeleteVertexArrays");
 			r_glGenVertexArrays = r_extension_get_address("glGenVertexArrays");
 		}
-		r_glGenBuffersARB(1, &i);
 	}
 
 	r_glGetUniformBlockIndex = r_extension_get_address("glGetUniformBlockIndex");
@@ -566,9 +485,7 @@ void  r_array_init(void)
 	r_glMultiDrawElementsIndirect = r_extension_get_address("glMultiDrawElementsIndirect");
 	r_glCopyBufferSubData = r_extension_get_address("glCopyBufferSubData");
 
-	r_glDrawArraysInstanced = r_extension_get_address("glDrawArraysInstanced");
 #endif
-	r_array_pool_bound = 0;
 	r_array_bound = 0;
 	for(i = 0; i < 64; i++)
 		r_array_attrib_mode[i] = FALSE;
@@ -578,17 +495,11 @@ float *sui_vertex_tmp = NULL;
 
 void r_array_vertex_atrib_set(void *pool, boolean reference)
 {
-	//FK: There's not GL_DOUBLE on OpenGL ES
-#ifndef BETRAY_CONTEXT_OPENGLES
-    static uint types[] = {GL_BYTE, GL_UNSIGNED_BYTE, GL_SHORT, GL_UNSIGNED_SHORT, GL_INT, GL_UNSIGNED_INT, GL_FLOAT, GL_DOUBLE};
-    uint type_sizes[] = {1, 1, 2, 2, 4, 4, 4, 8}, i, size = 0;
-#else
-    static uint types[] = {GL_BYTE, GL_UNSIGNED_BYTE, GL_SHORT, GL_UNSIGNED_SHORT, GL_INT, GL_UNSIGNED_INT, GL_FLOAT, GL_FLOAT};
-    uint type_sizes[] = {1, 1, 2, 2, 4, 4, 4, 4}, i, size = 0;
-#endif
-	RArrayPool *p;
-//	if(r_array_pool_bound == pool)
-//		return;
+	static uint types[] = {GL_BYTE, GL_UNSIGNED_BYTE, GL_SHORT, GL_UNSIGNED_SHORT, GL_INT, GL_UNSIGNED_INT, GL_FLOAT, GL_DOUBLE};
+	uint type_sizes[] = {1, 1, 2, 2, 4, 4, 4, 8}, i, size = 0;
+	SUIArrayPool *p;
+	if(r_array_pool_bound == pool)
+		return;
 	p = pool;
 	r_array_pool_bound = pool;
 
@@ -641,23 +552,17 @@ void r_array_deactivate()
 			r_glDisableVertexAttribArrayARB(i);
 }
 
-void r_array_load_vertex(void *pool, void *section, void *data, uint start, uint length)
+void r_array_load_vertex(void *pool, SUIArraySection *section, void *data, uint start, uint length)
 {
-	RArrayPool *p;
+	SUIArrayPool *p;
 	p = pool;
-	/*{
-		uint i, j,  read;
-		for(i = 0; i < length; i++)
-			read = ((uint8 *)data)[i * p->vertex_size];
-	}*/
-
 	if(section != NULL)
 	{
-		if(((RArraySection *)section)->count < length)
-			length = ((RArraySection *)section)->count;
+		if(((SUIArraySection *)section)->vertex_count < length)
+			length = ((SUIArraySection *)section)->vertex_count;
 
 		if(p->data != NULL)
-			memcpy(&p->data[(((RArraySection *)section)->start + start) * p->vertex_size], 
+			memcpy(&p->data[(((SUIArraySection *)section)->vertex_start + start) * p->vertex_size], 
 			data, 
 			length * p->vertex_size);
 
@@ -665,14 +570,16 @@ void r_array_load_vertex(void *pool, void *section, void *data, uint start, uint
 		{
 			if(r_array_bound != p->gl_buffer)
 				r_glBindBufferARB(GL_ARRAY_BUFFER_ARB, p->gl_buffer);
-			r_glBufferSubDataARB(GL_ARRAY_BUFFER_ARB, (((RArraySection *)section)->start + start) * p->vertex_size, length * p->vertex_size, data);
+			r_glBufferSubDataARB(GL_ARRAY_BUFFER_ARB, (((SUIArraySection *)section)->vertex_start + start) * p->vertex_size, length * p->vertex_size, data);
 			if(r_array_bound != p->gl_buffer)
 				r_glBindBufferARB(GL_ARRAY_BUFFER_ARB, r_array_bound);
 		}
 	}else
 	{
-		if(p->divide[R_AD_VERTEX].array_length + start < length)
-			length = p->divide[R_AD_VERTEX].array_length - start;
+		if(p->array_length + start < length)
+		{
+			length = p->array_length - start;
+		}
 		if(p->data != NULL)
 		{
 			memcpy(&p->data[start * p->vertex_size], 
@@ -692,22 +599,22 @@ void r_array_load_vertex(void *pool, void *section, void *data, uint start, uint
 
 void r_array_load_reference(void *pool, void *section, void *referencing_section, uint *reference, uint length)
 {
-	RArrayPool *p;
+	SUIArrayPool *p;
 	uint size;
 	p = pool;
 
 	r_array_vertex_atrib_set(pool, TRUE);
-	((RArraySection *)section)->referencing = referencing_section;
-	size = ((RArraySection *)section)->start;
+	((SUIArraySection *)section)->referencing = referencing_section;
+	size = ((SUIArraySection *)section)->vertex_start;
 	if(p->data != NULL)
 	{
-		if(((RArraySection *)referencing_section)->start == 0 || r_glDrawElementsBaseVertex != NULL)
-			memcpy(&p->data[(((RArraySection *)section)->start) * sizeof(uint32) + p->divide[R_AD_VERTEX].array_length * p->vertex_size], reference, length * sizeof(uint32));
+		if(((SUIArraySection *)referencing_section)->vertex_start == 0 || r_glDrawElementsBaseVertex != NULL)
+			memcpy(&p->data[((SUIArraySection *)section)->vertex_start * p->vertex_size], reference, length * sizeof(uint32));
 		else
 		{
-			uint32 *to, i, start;
-			start = ((RArraySection *)referencing_section)->start;
-			to = (uint32 *)&p->data[(((RArraySection *)section)->start) * sizeof(uint32) + p->divide[R_AD_VERTEX].array_length * p->vertex_size];
+			uint32 *temp, *to, i, start;
+			start = ((SUIArraySection *)referencing_section)->vertex_start;
+			to = (uint32 *)&p->data[((SUIArraySection *)section)->vertex_start * p->vertex_size];
 			for(i = 0; i < length; i++)
 				to[i] = reference[i] + start;
 		}
@@ -716,53 +623,59 @@ void r_array_load_reference(void *pool, void *section, void *referencing_section
 	{
 		if(r_array_bound != p->gl_buffer)
 			r_glBindBufferARB(GL_ARRAY_BUFFER_ARB, p->gl_buffer);
-		if(((RArraySection *)referencing_section)->start == 0 || r_glDrawElementsBaseVertex != NULL)
-			r_glBufferSubDataARB(GL_ARRAY_BUFFER_ARB, (((RArraySection *)section)->start) * sizeof(uint32) + p->divide[R_AD_VERTEX].array_length * p->vertex_size, length * sizeof(uint32), reference);
+		if(((SUIArraySection *)referencing_section)->vertex_start == 0 || r_glDrawElementsBaseVertex != NULL)
+			r_glBufferSubDataARB(GL_ARRAY_BUFFER_ARB, (((SUIArraySection *)section)->vertex_start) * p->vertex_size, length * sizeof(uint32), reference);
 		else
 		{
-			uint32 *temp, i, start;
-			start = ((RArraySection *)referencing_section)->start;
+			uint32 *temp, *to, i, start;
+			start = ((SUIArraySection *)referencing_section)->vertex_start;
 			temp = malloc((sizeof *temp) * length);
+			to = (uint32 *)&p->data[((SUIArraySection *)section)->vertex_start * p->vertex_size];
 			for(i = 0; i < length; i++)
-				temp[i] = reference[i] + start;
-			r_glBufferSubDataARB(GL_ARRAY_BUFFER_ARB, (((RArraySection *)section)->start) * sizeof(uint32) + p->divide[R_AD_VERTEX].array_length * p->vertex_size, length * sizeof(uint32), temp);
+				to[i] = reference[i] + start;
+			r_glBufferSubDataARB(GL_ARRAY_BUFFER_ARB, (((SUIArraySection *)section)->vertex_start) * p->vertex_size, length * sizeof(uint32), temp);
 			free(temp);
 		}
 		if(r_array_bound != p->gl_buffer)
 			r_glBindBufferARB(GL_ARRAY_BUFFER_ARB, r_array_bound);
 	}
-	((RArraySection *)section)->referencing = referencing_section;
-}
+	((SUIArraySection *)section)->referencing = referencing_section;
+}/*
+ern void		r_array_load_vertex(void *pool, void *section, void *data, uint start, uint length);
+extern void		r_array_load_reference(void *pool, void *section, uint *data, void *vertex_section, uint length);
 
+*/
 uint r_array_get_size(void *pool)
 {
-	return ((RArrayPool *)pool)->divide[R_AD_VERTEX].array_length;
+	return ((SUIArrayPool *)pool)->array_length;
 }
 
 uint r_array_get_used(void *pool)
 {
-	return ((RArrayPool *)pool)->divide[R_AD_VERTEX].array_used;
+	return ((SUIArrayPool *)pool)->array_used;
 }
 
 uint r_array_get_left(void *pool)
 {
-	return ((RArrayPool *)pool)->divide[R_AD_VERTEX].array_length - ((RArrayPool *)pool)->divide[R_AD_VERTEX].array_used;
+	return ((SUIArrayPool *)pool)->array_length - ((SUIArrayPool *)pool)->array_used;
 }
 
 uint r_array_get_vertex_size(void *pool)
 {
-	return ((RArrayPool *)pool)->vertex_size;
+	return ((SUIArrayPool *)pool)->vertex_size;
 }
 
 uint r_array_section_get_vertex_count(void *section)
 {
-	return ((RArraySection *)section)->count;
+	return ((SUIArraySection *)section)->vertex_count;
 }
 
 uint r_array_section_get_vertex_start(void *section)
 {
-	return ((RArraySection *)section)->start;
+	return ((SUIArraySection *)section)->vertex_start;
 }
+
+extern void r_shader_uniform_matrix_set(RMatrix *matrix, RShader *shader, uint block_id, uint8 *uniform_data);
 
 /*
 void r_array_section_draw(void *pool, void *section, uint primitive_type, uint vertex_start, uint vertex_count)
@@ -780,14 +693,14 @@ void r_array_section_draw(void *pool, void *section, uint primitive_type, uint v
 
 	if(section != NULL)
 	{	
-		RArraySection *s;
-		s = (RArraySection *)section;
+		SUIArraySection *s;
+		s = (SUIArraySection *)section;
 		if(vertex_count > s->vertex_count)
 			vertex_count = s->vertex_count;
 		glDrawArrays(primitive_type, s->vertex_start + vertex_start, vertex_count);
 	}else
 	{
-		RArrayPool *p;
+		SUIArrayPool *p;
 		p = pool;
 		if(vertex_count > p->array_length)
 			vertex_count = p->array_length;
@@ -795,46 +708,43 @@ void r_array_section_draw(void *pool, void *section, uint primitive_type, uint v
 	}
 }*/
 
-extern uint special_drawcall_active;
-
-void r_array_draw(RArrayPool *pool, RArraySection *section, RPrimitive primitive_type, uint vertex_start, uint vertex_count, uint8 *uniforms, RArrayPool *array_pool, uint count)
+void r_array_draw(SUIArrayPool *pool, SUIArraySection *section, RPrimitive primitive_type, uint vertex_start, uint vertex_count, uint8 *uniforms, SUIArrayPool *array_pool, uint count)
 {
 	uint i, bind_point, add;
-	uint progress;
-	uint8 *p = NULL;
+	uint progress, offset, calls, j;
+	uint8 *p;
+
 	r_array_vertex_atrib_set(pool, section != NULL && section->referencing != NULL);
 	for(i = 0; i < r_current_shader->block_count; i++)
 		r_shader_uniform_matrix_set(r_current_shader, r_current_shader->uniform_data, i, (RMatrix *)r_matrix_state);
-
-
 	if(uniforms == NULL && array_pool == NULL)
 	{
 		r_shader_unifrom_data_set_all(r_current_shader, r_current_shader->uniform_data, -1);
 		count = 1;
 	}else
 		r_shader_unifrom_data_set_all(r_current_shader, r_current_shader->uniform_data, r_current_shader->instance_block);
-
 	if(section == NULL)
 	{
-		if(vertex_start >= pool->divide[R_AD_VERTEX].array_length)
+		if(vertex_start >= pool->array_length)
 			return;
-		if(vertex_start + vertex_count > pool->divide[R_AD_VERTEX].array_length)
-			vertex_count = pool->divide[R_AD_VERTEX].array_length - vertex_start;
+		if(vertex_start + vertex_count > pool->array_length)
+			vertex_count = pool->array_length - vertex_start;
 	}else
 	{
 		if(section->referencing != NULL)
 		{
-			if(vertex_count > section->count)
-				vertex_count = section->count;
-			p = &pool->data[(section->start + vertex_start) * sizeof(uint32) + ((RArrayPool *)pool)->divide[R_AD_VERTEX].array_length * pool->vertex_size];
+			if(vertex_count > section->reference_count)
+				vertex_count = section->reference_count;
+			p = (uint *)(pool->data);
+			p = &p[(section->vertex_start + vertex_start) * ((SUIArrayPool *)pool)->vertex_size];
 		}else
 		{
 
-			if(vertex_start >= section->count)
+			if(vertex_start >= section->vertex_count)
 				return;
-			if(vertex_count > section->count - vertex_start)
-				vertex_count = section->count - vertex_start;
-			vertex_start += section->start;
+			if(vertex_count > section->vertex_count - vertex_start)
+				vertex_count = section->vertex_count - vertex_start;
+			vertex_start += section->vertex_start;
 		}
 	}
 
@@ -863,7 +773,6 @@ void r_array_draw(RArrayPool *pool, RArraySection *section, RPrimitive primitive
 
 		for(i = 0; i < count; i++)
 		{	
-			
 			r_current_shader->blocks[r_current_shader->instance_block].updated = FALSE;
 			if(uniforms != NULL)
 				r_shader_unifrom_data_set_block(r_current_shader, &(((uint8 *)uniforms)[r_current_shader->blocks[r_current_shader->instance_block].size * i]), r_current_shader->instance_block);
@@ -874,7 +783,7 @@ void r_array_draw(RArrayPool *pool, RArraySection *section, RPrimitive primitive
 				else
 				{
 					if(r_glDrawElementsBaseVertex != NULL)
-						r_glDrawElementsBaseVertex(primitive_type, vertex_count, GL_UNSIGNED_INT, p, ((RArraySection *)section->referencing)->start);
+						r_glDrawElementsBaseVertex(primitive_type, vertex_count, GL_UNSIGNED_INT, p, ((SUIArraySection *)section->referencing)->vertex_start);
 					else
 						glDrawElements(primitive_type, vertex_count, GL_UNSIGNED_INT, p);
 				}
@@ -919,7 +828,7 @@ void r_array_draw(RArrayPool *pool, RArraySection *section, RPrimitive primitive
 			if(array_pool != NULL)
 			{
 				if(r_current_shader->mode == R_SIM_UNIFORM_BLOCK)
-					r_glCopyBufferSubData(GL_COPY_READ_BUFFER, bind_point, (void *)(progress * r_current_shader->blocks[r_current_shader->instance_block].size), 0, (void *)(add * r_current_shader->blocks[r_current_shader->instance_block].size));
+					r_glCopyBufferSubData(GL_COPY_READ_BUFFER, bind_point, progress * r_current_shader->blocks[r_current_shader->instance_block].size, 0, add * r_current_shader->blocks[r_current_shader->instance_block].size);
 			}else if(uniforms != NULL)
 				r_glBufferDataARB(bind_point, 
 								add * r_current_shader->blocks[r_current_shader->instance_block].size, 
@@ -929,7 +838,7 @@ void r_array_draw(RArrayPool *pool, RArraySection *section, RPrimitive primitive
 			{
 				if(section != NULL && section->referencing != NULL)
 				{
-					r_glDrawElementsInstancedBaseVertex(primitive_type, vertex_count, GL_UNSIGNED_INT, p, add, ((RArraySection *)section->referencing)->start);
+					r_glDrawElementsInstancedBaseVertex(primitive_type, vertex_count, GL_UNSIGNED_INT, p, add, ((SUIArraySection *)section->referencing)->vertex_start);
 				}else
 					r_glDrawArraysInstanced(primitive_type, 0, vertex_count, add);
 			}else
@@ -937,7 +846,7 @@ void r_array_draw(RArrayPool *pool, RArraySection *section, RPrimitive primitive
 				if(section != NULL && section->referencing != NULL)
 				{
 					if(r_glDrawElementsBaseVertex != NULL)
-						r_glDrawElementsBaseVertex(primitive_type, vertex_count, GL_UNSIGNED_INT, p, ((RArraySection *)section->referencing)->start);
+						r_glDrawElementsBaseVertex(primitive_type, vertex_count, GL_UNSIGNED_INT, p, ((SUIArraySection *)section->referencing)->vertex_start);
 					else
 						glDrawElements(primitive_type, vertex_count, GL_UNSIGNED_INT, p);
 				}else
@@ -949,7 +858,7 @@ void r_array_draw(RArrayPool *pool, RArraySection *section, RPrimitive primitive
 
 
 
-void r_array_sections_draw(void *pool, void **sections, RPrimitive primitive_type, uint8 *uniforms, RArrayPool *array_pool, uint count)
+void r_array_sections_draw(void *pool, void **sections, RPrimitive primitive_type, uint8 *uniforms, SUIArrayPool *array_pool, uint count)
 {
 	uint i, bind_point;
 	if(r_current_shader == NULL)
@@ -957,15 +866,15 @@ void r_array_sections_draw(void *pool, void **sections, RPrimitive primitive_typ
 		printf("Relinquish ERROR: no Shader set\n");
 		return;
 	}
-/*	if(uniforms == NULL && array_pool == NULL)
+	if(uniforms == NULL && array_pool == NULL)
 	{
 		printf("RELINQUISH Error: r_array_sections_draw uniform is NULL.\n");
 		exit(0);
-	}*/
+	}
 	if(array_pool != NULL)
 	{
-		if(count > array_pool->divide[R_AD_VERTEX].array_length)
-			count = array_pool->divide[R_AD_VERTEX].array_length;
+		if(count > array_pool->array_length)
+			count = array_pool->array_length;
 		if(array_pool->vertex_size != r_current_shader->blocks[r_current_shader->instance_block].size)
 		{
 			printf("RELINQUISH Error: r_array_sections_draw array_pool vertex format size does not match instance uniform block size.\n");
@@ -975,16 +884,12 @@ void r_array_sections_draw(void *pool, void **sections, RPrimitive primitive_typ
 	r_array_vertex_atrib_set(pool, FALSE);
 	for(i = 0; i < r_current_shader->block_count; i++)
 		r_shader_uniform_matrix_set(r_current_shader, r_current_shader->uniform_data, i, (RMatrix *)r_matrix_state);
-
-	if(uniforms == NULL && array_pool == NULL)
-		r_shader_unifrom_data_set_all(r_current_shader, r_current_shader->uniform_data, -1);
-	else
-		r_shader_unifrom_data_set_all(r_current_shader, r_current_shader->uniform_data, r_current_shader->instance_block);
+	r_shader_unifrom_data_set_all(r_current_shader, r_current_shader->uniform_data, r_current_shader->instance_block);
 
 	if(r_current_shader->blocks[r_current_shader->instance_block].object == -1)
 	{
-		RArraySection *s;
-		RArrayPool *p;
+		SUIArraySection *s;
+		SUIArrayPool *p;
 		p = pool;
 		if(array_pool != NULL)
 		{
@@ -998,10 +903,10 @@ void r_array_sections_draw(void *pool, void **sections, RPrimitive primitive_typ
 			r_shader_unifrom_data_set_block(r_current_shader, &(((uint8 *)uniforms)[r_current_shader->blocks[r_current_shader->instance_block].size * i]), r_current_shader->instance_block);
 			if(sections != NULL)
 			{
-				s = (RArraySection *)sections[i];
-				glDrawArrays(primitive_type, s->start, s->count);
+				s = (SUIArraySection *)sections[i];
+				glDrawArrays(primitive_type, s->vertex_start, s->vertex_count);
 			}else
-				glDrawArrays(primitive_type, 0, p->divide[R_AD_VERTEX].array_length);
+				glDrawArrays(primitive_type, 0, p->array_length);
 		}
 		if(array_pool != NULL)
 			free(uniforms);
@@ -1015,8 +920,7 @@ void r_array_sections_draw(void *pool, void **sections, RPrimitive primitive_typ
 			r_glBindBufferBase(bind_point, r_current_shader->blocks[r_current_shader->instance_block].id, array_pool->gl_buffer);
 		else
 			r_glBindBufferBase(bind_point, r_current_shader->blocks[r_current_shader->instance_block].id, r_current_shader->blocks[r_current_shader->instance_block].object);
-		if(uniforms == NULL)
-			uniforms = &r_current_shader->uniform_data[r_current_shader->blocks[r_current_shader->instance_block].offset];
+
 		if(r_current_shader->mode == R_SIM_BUFFER_OBJECT && array_pool != NULL)
 			r_glBindBufferARB(bind_point, array_pool->gl_buffer);
 		else
@@ -1027,10 +931,10 @@ void r_array_sections_draw(void *pool, void **sections, RPrimitive primitive_typ
 		}
 		if(sections != NULL)
 		{	
-			static uint command_count = 0;
+			static command_count = 0;
 			static RDrawArraysIndirectCommand *command =  NULL;
-			uint progress, add, calls, j;
-			RArraySection *s;
+			uint progress, offset, add, calls, j;
+			SUIArraySection *s;
 
 			if(r_glMultiDrawArraysIndirect != NULL)
 			{
@@ -1054,7 +958,7 @@ void r_array_sections_draw(void *pool, void **sections, RPrimitive primitive_typ
 				if(array_pool != NULL)
 				{
 					if(r_current_shader->mode == R_SIM_UNIFORM_BLOCK)
-						r_glCopyBufferSubData(GL_COPY_READ_BUFFER, bind_point, (void *)(progress * r_current_shader->blocks[r_current_shader->instance_block].size), 0, (void *)(add * r_current_shader->blocks[r_current_shader->instance_block].size));
+						r_glCopyBufferSubData(GL_COPY_READ_BUFFER, bind_point, progress * r_current_shader->blocks[r_current_shader->instance_block].size, 0, add * r_current_shader->blocks[r_current_shader->instance_block].size);
 				}else
 					r_glBufferDataARB(bind_point, 
 									add * r_current_shader->blocks[r_current_shader->instance_block].size, 
@@ -1064,23 +968,23 @@ void r_array_sections_draw(void *pool, void **sections, RPrimitive primitive_typ
 				{
 					for(i = calls = 0; i < add; i += j)
 					{
-						s = (RArraySection *)sections[i + progress];
+						s = (SUIArraySection *)sections[i + progress];
 						command[calls].baseInstance = i;
-						command[calls].first = s->start;
-						command[calls].count = s->count;
-					//	for(j = 1; sections[i + progress] == sections[i + progress + j] && i + j < add; j++); FIX ME!
+						command[calls].first = s->vertex_start;
+						command[calls].count = s->vertex_count;
+					//	for(j = 1; sections[i + progress] == sections[i + progress + j] && i + j <= add; j++);
 						j = 1;
 						command[calls].instanceCount = i + j;
 						calls++;
 					}
 					r_glMultiDrawArraysIndirect(primitive_type, command, calls, (sizeof *command));
 				}else
-					glDrawArrays(primitive_type, ((RArraySection *)sections)->start, ((RArraySection *)sections)->count);
+					glDrawArrays(primitive_type, s->vertex_start, s->vertex_count);
 			}
 		}else
 		{
-			RArrayPool *p;
-			uint progress, add;
+			SUIArrayPool *p;
+			uint progress, offset, add;
 			p = pool;
 			if(r_glDrawArraysInstanced != NULL)
 			{
@@ -1099,16 +1003,16 @@ void r_array_sections_draw(void *pool, void **sections, RPrimitive primitive_typ
 				if(array_pool != NULL)
 				{
 					if(r_current_shader->mode == R_SIM_UNIFORM_BLOCK)
-						r_glCopyBufferSubData(GL_COPY_READ_BUFFER, bind_point, (void *)(progress * r_current_shader->blocks[r_current_shader->instance_block].size), 0, (void *)(add * r_current_shader->blocks[r_current_shader->instance_block].size));
+						r_glCopyBufferSubData(GL_COPY_READ_BUFFER, bind_point, progress * r_current_shader->blocks[r_current_shader->instance_block].size, 0, add * r_current_shader->blocks[r_current_shader->instance_block].size);
 				}else
 					r_glBufferDataARB(bind_point, 
 									add * r_current_shader->blocks[r_current_shader->instance_block].size, 
 									&uniforms[progress * r_current_shader->blocks[r_current_shader->instance_block].size], 
 									GL_DYNAMIC_DRAW_ARB);
 				if(add != 1)
-					r_glDrawArraysInstanced(primitive_type, 0, p->divide[R_AD_VERTEX].array_length, add);
+					r_glDrawArraysInstanced(primitive_type, 0, p->array_length, add);
 				else
-					glDrawArrays(primitive_type, 0, p->divide[R_AD_VERTEX].array_length);
+					glDrawArrays(primitive_type, 0, p->array_length);
 			}
 		}
 	}
@@ -1128,19 +1032,19 @@ void r_array_reference_draw(void *pool, void *section, uint primitive_type, uint
 	if(section != NULL)
 	{	
 		uint i, *p;
-		if(vertex_count > ((RArraySection *)section)->vertex_count * ((RArrayPool *)pool)->vertex_size / 4 - vertex_start)
-			vertex_count = ((RArraySection *)section)->vertex_count * ((RArrayPool *)pool)->vertex_size / 4 - vertex_start;
-		p = (uint *)((RArrayPool *)pool)->data;
-		p = &p[(((RArraySection *)section)->vertex_start + vertex_start) * ((RArrayPool *)pool)->vertex_size / 4];
+		if(vertex_count > ((SUIArraySection *)section)->vertex_count * ((SUIArrayPool *)pool)->vertex_size / 4 - vertex_start)
+			vertex_count = ((SUIArraySection *)section)->vertex_count * ((SUIArrayPool *)pool)->vertex_size / 4 - vertex_start;
+		p = (uint *)((SUIArrayPool *)pool)->data;
+		p = &p[(((SUIArraySection *)section)->vertex_start + vertex_start) * ((SUIArrayPool *)pool)->vertex_size / 4];
 		if(r_glDrawElementsBaseVertex == NULL)
 			glDrawElements(primitive_type, vertex_count, GL_UNSIGNED_INT, p);
 		else
-			r_glDrawElementsBaseVertex(primitive_type, vertex_count, GL_UNSIGNED_INT, p, ((RArraySection *)((RArraySection *)section)->referencing)->vertex_start);
+			r_glDrawElementsBaseVertex(primitive_type, vertex_count, GL_UNSIGNED_INT, p, ((SUIArraySection *)((SUIArraySection *)section)->referencing)->vertex_start);
 
 	}
 }*/
 
-void r_array_references_draw(void *pool, void **sections, RPrimitive primitive_type, uint8 *uniforms, RArrayPool *array_pool, uint count)
+void r_array_references_draw(void *pool, void **sections, RPrimitive primitive_type, uint8 *uniforms, SUIArrayPool *array_pool, uint count)
 {
 	uint i, vertex_count, bind_point;
 	uint8 *p;
@@ -1149,15 +1053,15 @@ void r_array_references_draw(void *pool, void **sections, RPrimitive primitive_t
 		printf("Relinquish ERROR: no Shader set\n");
 		return;
 	}
-/*	if(uniforms == NULL && array_pool == NULL)
+	if(uniforms == NULL && array_pool == NULL)
 	{
-		printf("RELINQUISH Error: r_array_references_draw uniform is NULL.\n");
+		printf("RELINQUISH Error: r_array_sections_draw uniform is NULL.\n");
 		exit(0);
-	}*/
+	}
 	if(array_pool != NULL)
 	{
-		if(count > array_pool->divide[R_AD_VERTEX].array_length)
-			count = array_pool->divide[R_AD_VERTEX].array_length;
+		if(count > array_pool->array_length)
+			count = array_pool->array_length;
 		if(array_pool->vertex_size != r_current_shader->blocks[r_current_shader->instance_block].size)
 		{
 			printf("RELINQUISH Error: r_array_sections_draw array_pool vertex format size does not match instance uniform block size.\n");
@@ -1166,20 +1070,15 @@ void r_array_references_draw(void *pool, void **sections, RPrimitive primitive_t
 	}
 	r_array_vertex_atrib_set(pool, TRUE);
 	for(i = 0; i < r_current_shader->block_count; i++)
-		if(r_current_shader->instance_block != i || (uniforms == NULL && array_pool == NULL))
+		if(r_current_shader->instance_block != i)
 			r_shader_uniform_matrix_set(r_current_shader, r_current_shader->uniform_data, i, (RMatrix *)r_matrix_state);
+	r_shader_unifrom_data_set_all(r_current_shader, r_current_shader->uniform_data, r_current_shader->instance_block);
 
-	if(uniforms == NULL && array_pool == NULL)
-		r_shader_unifrom_data_set_all(r_current_shader, r_current_shader->uniform_data, -1);
-	else
-		r_shader_unifrom_data_set_all(r_current_shader, r_current_shader->uniform_data, r_current_shader->instance_block);
-	if(uniforms == NULL)
-		uniforms = &r_current_shader->uniform_data[r_current_shader->blocks[r_current_shader->instance_block].offset];
 	if(r_current_shader->blocks[r_current_shader->instance_block].object == -1)
 	{
 		if(sections != NULL)
 		{	
-			RArraySection *s;
+			SUIArraySection *s;
 			if(array_pool != NULL)
 			{
 				uniforms = malloc(r_current_shader->blocks[r_current_shader->instance_block].size * count);
@@ -1188,17 +1087,17 @@ void r_array_references_draw(void *pool, void **sections, RPrimitive primitive_t
 			}
 			for(i = 0; i < count; i++)
 			{	
-				s = (RArraySection *)sections[i];
+				s = (SUIArraySection *)sections[i];
 				r_current_shader->blocks[r_current_shader->instance_block].updated = FALSE;
 				r_shader_unifrom_data_set_block(r_current_shader, &(((uint8 *)uniforms)[r_current_shader->blocks[r_current_shader->instance_block].size * i]), r_current_shader->instance_block);
 
-				vertex_count = ((RArraySection *)sections[i])->count;
-				p = ((RArrayPool *)pool)->data;
-				p = &p[((RArraySection *)sections[i])->start * sizeof(uint) + ((RArrayPool *)pool)->divide[R_AD_VERTEX].array_length * ((RArrayPool *)pool)->vertex_size];
+				vertex_count = ((SUIArraySection *)sections[i])->reference_count;
+				p = ((SUIArrayPool *)pool)->data;
+				p = &p[((SUIArraySection *)sections[i])->vertex_start * ((SUIArrayPool *)pool)->vertex_size];
 				if(r_glDrawElementsBaseVertex == NULL)
 					glDrawElements(primitive_type, vertex_count, GL_UNSIGNED_INT, p);
 				else
-					r_glDrawElementsBaseVertex(primitive_type, vertex_count, GL_UNSIGNED_INT, p, ((RArraySection *)((RArraySection *)sections[i])->referencing)->start);
+					r_glDrawElementsBaseVertex(primitive_type, vertex_count, GL_UNSIGNED_INT, p, ((SUIArraySection *)((SUIArraySection *)sections[i])->referencing)->vertex_start);
 			}
 			if(array_pool != NULL)
 				free(uniforms);
@@ -1224,10 +1123,10 @@ void r_array_references_draw(void *pool, void **sections, RPrimitive primitive_t
 		}
 		if(sections != NULL)
 		{	
-			static uint command_count = 0;
+			static command_count = 0;
 			static RDrawElementsIndirectCommand *command =  NULL;
-			uint progress, add, calls, j;
-			RArraySection *s;
+			uint progress, offset, add, calls, j;
+			SUIArraySection *s;
 			
 			if(r_glMultiDrawElementsIndirect != NULL)
 			{
@@ -1250,7 +1149,7 @@ void r_array_references_draw(void *pool, void **sections, RPrimitive primitive_t
 				if(array_pool != NULL)
 				{
 					if(r_current_shader->mode == R_SIM_UNIFORM_BLOCK)
-						r_glCopyBufferSubData(GL_COPY_READ_BUFFER, bind_point, (void *)(progress * r_current_shader->blocks[r_current_shader->instance_block].size), 0, (void *)(add * r_current_shader->blocks[r_current_shader->instance_block].size));
+						r_glCopyBufferSubData(GL_COPY_READ_BUFFER, bind_point, progress * r_current_shader->blocks[r_current_shader->instance_block].size, 0, add * r_current_shader->blocks[r_current_shader->instance_block].size);
 				}else
 					r_glBufferDataARB(bind_point, 
 									add * r_current_shader->blocks[r_current_shader->instance_block].size, 
@@ -1260,27 +1159,27 @@ void r_array_references_draw(void *pool, void **sections, RPrimitive primitive_t
 				{
 					for(i = calls = 0; i < add; i += j)
 					{
-						s = (RArraySection *)sections[i + progress];
+						s = (SUIArraySection *)sections[i + progress];
 						command[calls].baseInstance = i;							
-						p = &((RArrayPool *)pool)->data[((RArraySection *)sections[i])->start + ((RArrayPool *)pool)->divide[R_AD_VERTEX].array_length * ((RArrayPool *)pool)->vertex_size / sizeof(uint32)];
-						command[calls].firstIndex = (uint)p;
-						command[calls].count = s->count;
-						command[calls].baseVertex = ((RArraySection *)((RArraySection *)sections[i])->referencing)->start;
-						for(j = 1; sections[i + progress] == sections[i + progress + j] && i + j < add; j++);
+						p = ((SUIArrayPool *)pool)->data;
+						p = &p[((SUIArraySection *)sections[i])->vertex_start * ((SUIArrayPool *)pool)->vertex_size / sizeof(uint)];
+						command[calls].firstIndex = p;
+						command[calls].count = s->reference_count;
+						command[calls].baseVertex = ((SUIArraySection *)((SUIArraySection *)sections[i])->referencing)->vertex_start;
+						for(j = 1; sections[i + progress] == sections[i + progress + j] && i + j <= add; j++);
 						command[calls].instanceCount = j;
 						calls++;
 					}
 					r_glMultiDrawElementsIndirect(primitive_type, GL_UNSIGNED_INT, command, calls, (sizeof *command));
 				}else
 				{
-					vertex_count = ((RArraySection *)sections[progress])->count;
-					p = ((RArrayPool *)pool)->data;
-					p = &p[((RArraySection *)sections[progress])->start * sizeof(uint) + ((RArrayPool *)pool)->divide[R_AD_VERTEX].array_length * ((RArrayPool *)pool)->vertex_size];
-			//		p = &p[((RArraySection *)sections[progress])->vertex_start * ((RArrayPool *)pool)->vertex_size];
+					vertex_count = ((SUIArraySection *)sections[progress])->reference_count;
+					p = ((SUIArrayPool *)pool)->data;
+					p = &p[((SUIArraySection *)sections[progress])->vertex_start * ((SUIArrayPool *)pool)->vertex_size];
 					if(r_glDrawElementsBaseVertex == NULL)
 						glDrawElements(primitive_type, vertex_count, GL_UNSIGNED_INT, p);
 					else
-						r_glDrawElementsBaseVertex(primitive_type, vertex_count, GL_UNSIGNED_INT, p, ((RArraySection *)((RArraySection *)sections[progress])->referencing)->start);
+						r_glDrawElementsBaseVertex(primitive_type, vertex_count, GL_UNSIGNED_INT, p, ((SUIArraySection *)((SUIArraySection *)sections[progress])->referencing)->vertex_start);
 				}
 			}
 		}
@@ -1292,7 +1191,7 @@ void r_array_references_draw(void *pool, void **sections, RPrimitive primitive_t
 void sui_array_section_draw_element(void *vertex_section, uint primitive_type, uint ref_type, void *ref_section, uint ref_count)
 {
 	r_shader_uniform_matrix_set(r_current_shader, r_current_shader->uniform_data, r_current_shader->instance_block, (RMatrix *)r_matrix_state);
-/*	(((RArraySection *)section)->vertex_start + vertex_start) * 
+/*	(((SUIArraySection *)section)->vertex_start + vertex_start) * 
 	glDrawElements(primitive_type, ref_count, ref_type, ref_section);*/
 }
 
@@ -1301,17 +1200,17 @@ void sui_array_section_draw_element(void *vertex_section, uint primitive_type, u
 
 void r_array_vertex_render(void *in_pool, void *out_pool)
 {
-	RArrayPool *in_p, *out_p;
+	SUIArrayPool *in_p, *out_p;
 	in_p = in_pool;
 	out_p = out_pool;
 	r_array_vertex_atrib_set(in_pool, FALSE);
 	glEnable(GL_RASTERIZER_DISCARD);
 	r_glBindBufferBase(GL_TRANSFORM_FEEDBACK_BUFFER, 0, out_p->gl_buffer);
 	r_glBeginTransformFeedback(GL_POINTS);
-	if(in_p->divide[R_AD_VERTEX].array_length < out_p->divide[R_AD_VERTEX].array_length)
-		glDrawArrays(GL_POINTS, 0, in_p->divide[R_AD_VERTEX].array_length);
+	if(in_p->array_length < out_p->array_length)
+		glDrawArrays(GL_POINTS, 0, in_p->array_length);
 	else
-		glDrawArrays(GL_POINTS, 0, out_p->divide[R_AD_VERTEX].array_length);
+		glDrawArrays(GL_POINTS, 0, out_p->array_length);
 	r_glEndTransformFeedback();
 	glFlush();
 	glDisable(GL_RASTERIZER_DISCARD);

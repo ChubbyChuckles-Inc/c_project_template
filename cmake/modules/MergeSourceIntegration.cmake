@@ -18,6 +18,7 @@ if(ENABLE_MERGESOURCE_BUILD)
     file(GLOB MERGESOURCE_CORE
         ${MERGESOURCE_ROOT}/f_*.c
         ${MERGESOURCE_ROOT}/i_*.c
+        ${MERGESOURCE_ROOT}/r_*.c
     )
     # Pick only the Windows Betray sources explicitly
     list(APPEND MERGESOURCE_CORE

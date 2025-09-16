@@ -4,12 +4,6 @@
 #include "relinquish.h"
 #undef RShader 
 
-#define RELINQUISH_RESOURCE_DEBUGGER
-
-#ifndef _WIN32
-#define APIENTRY
-#endif
-
 #ifdef BETRAY_CONTEXT_OPENGLES
 #define RELINQUISH_CONTEXT_OPENGLES
 #endif
@@ -114,9 +108,8 @@ extern GLvoid (APIENTRY *r_glDeleteBuffersARB)(uint n, const uint *buffers);
 extern GLvoid (APIENTRY *r_glGenBuffersARB)(uint n, uint *buffers);
 extern GLvoid (APIENTRY *r_glBufferDataARB)(uint target, uint size, const void *data, uint usage);
 
-#if defined(__APPLE__) || defined(__ANDROID__) || defined(_WIN32)
-typedef unsigned int GLhandleARB;
-#endif
+
+typedef uint GLhandleARB;
 
 typedef struct{
 	uint depth_test;
@@ -128,14 +121,6 @@ typedef struct{
 	boolean alpha_to_coverage;
 	boolean depth_mask;
 	boolean color_mask[4];
-	struct{
-		uint32 function;
-		uint32 reference;
-		uint32 mask;
-		uint32 stencil_fail_op;
-		uint32 depth_fail_op;
-		uint32 sucsess_op;
-	}steincil[2];
 }RState;
 
 
@@ -201,9 +186,9 @@ typedef struct{
 	RState state;
 	RShaderInputMode mode;
 	uint buffer_output_component_count;
-	RFormats buffer_output_component_types[64];
+	uint buffer_output_component_types[64];
 	uint buffer_input_component_count;
-	RFormats buffer_input_component_types[64];
+	uint buffer_input_component_types[64];
 }RShader;
 
 
@@ -225,7 +210,6 @@ extern void r_shader_parse_input_print(RShaderInput *input, uint count);
 
 extern void r_shader_unifrom_data_set_block(RShader *s, uint8 *data, uint block);
 extern void r_shader_unifrom_data_set_all(RShader *s, uint8 *data, uint exception);
-extern void r_shader_uniform_matrix_set(RShader *shader, uint8 *data, uint block_id, RMatrix *matrix);
 
 
 
